@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
+import { preload } from "react-dom";
 import "./globals.css";
 
 const TITLE = "LaunchBeam | Build a waitlist and validate demand";
@@ -67,6 +68,16 @@ export default async function RootLayout({
   children: ReactNode;
 }>) {
   const siteUrl = await getSiteUrl();
+  preload("/fonts/ArgentumSans-Regular.woff2", {
+    as: "font",
+    crossOrigin: "anonymous",
+    type: "font/woff2",
+  });
+  preload("/fonts/ArgentumSans-SemiBold.woff2", {
+    as: "font",
+    crossOrigin: "anonymous",
+    type: "font/woff2",
+  });
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "WebSite",

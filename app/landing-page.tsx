@@ -7,7 +7,7 @@ import type {
   ReactNode,
   RefObject,
 } from "react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -197,6 +197,11 @@ export function LandingPage() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
+  useLayoutEffect(() => {
+    document.documentElement.classList.add("motion-ready");
+    return () => document.documentElement.classList.remove("motion-ready");
+  }, []);
+
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 20);
     onScroll();
@@ -252,7 +257,10 @@ export function LandingPage() {
 
   useEffect(() => {
     const items = document.querySelectorAll<HTMLElement>("[data-reveal]");
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      !("IntersectionObserver" in window)
+    ) {
       items.forEach((item) => item.classList.add("is-visible"));
       return;
     }
@@ -266,10 +274,45 @@ export function LandingPage() {
           }
         });
       },
-      { threshold: 0.12 },
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
     );
     items.forEach((item) => observer.observe(item));
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const heroVisual = document.querySelector<HTMLElement>(".hero-visual");
+    if (!heroVisual) return;
+
+    const motionQuery = window.matchMedia(
+      "(min-width: 961px) and (prefers-reduced-motion: no-preference)",
+    );
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      if (!motionQuery.matches) {
+        heroVisual.style.removeProperty("--hero-parallax");
+        return;
+      }
+
+      const progress = Math.min(window.scrollY / Math.max(window.innerHeight, 1), 1);
+      heroVisual.style.setProperty("--hero-parallax", `${Math.round(progress * -12)}px`);
+    };
+
+    const requestUpdate = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", requestUpdate, { passive: true });
+    motionQuery.addEventListener("change", requestUpdate);
+    return () => {
+      window.removeEventListener("scroll", requestUpdate);
+      motionQuery.removeEventListener("change", requestUpdate);
+      if (frame) window.cancelAnimationFrame(frame);
+      heroVisual.style.removeProperty("--hero-parallax");
+    };
   }, []);
 
   const openBeta = (plan: PlanIntent) => {
@@ -404,15 +447,11 @@ function HeroSection({ onCreate }: { onCreate: () => void }) {
   return (
     <section className="hero-section" id="top">
       <div className="section-inner hero-inner">
-        <div className="hero-copy" data-reveal>
+        <div className="hero-copy" data-hero-sequence>
           <h1>Build an audience before you launch.</h1>
           <p className="hero-lede">
             Create a polished waitlist, reward referrals, and measure real demand
             before committing months to your idea.
-          </p>
-          <p className="hero-difference">
-            Publish in minutes, grow through referrals, and turn early interest
-            into a clear Demand Score.
           </p>
           <div className="hero-actions">
             <BetaCta plan="free" onSelect={onCreate}>
@@ -454,7 +493,7 @@ function ProductStudio() {
   const markChanged = () => setSaveState("saving");
 
   return (
-    <div id="product" className="product-stage" data-reveal>
+    <div id="product" className="product-stage" data-reveal="scale">
       <BrowserMockup title={`${campaign.startup} campaign`} className="studio-window">
         <div className="studio-toolbar">
           <div className="studio-tabs" role="tablist" aria-label="Campaign workspace">
@@ -792,15 +831,15 @@ function InsightsSection() {
   const [activeTab, setActiveTab] = useState<AnalyticsTab>("overview");
 
   return (
-    <section className="insights-section" id="analytics">
-      <div className="section-inner">
+    <section className="insights-section">
+      <div className="section-inner" id="analytics">
         <SectionHeading
           kicker="Demand and analytics"
           title="Know when your idea is working."
           copy="LaunchBeam turns conversion and referral activity into one clear launch signal, then keeps the supporting detail close at hand."
         />
 
-        <div className="insights-dashboard" data-reveal>
+        <div className="insights-dashboard" data-reveal="scale">
           <div className="demand-panel">
             <span className="data-label">Example campaign data</span>
             <div className="score-value">
@@ -947,14 +986,14 @@ function SignupChart({ compact = false }: { compact?: boolean }) {
 
 function FeaturesSection() {
   return (
-    <section className="features-section" id="features">
-      <div className="section-inner feature-layout">
+    <section className="features-section">
+      <div className="section-inner feature-layout" id="features">
         <SectionHeading
           kicker="Product direction"
           title="The launch essentials, without the noise."
           copy="The current prototype focuses on the page builder and Demand Score. The remaining capabilities are labelled as roadmap items until they are production-ready."
         />
-        <div className="feature-list" data-reveal>
+        <div className="feature-list" data-reveal="group">
           {featureItems.map((feature) => (
             <FeatureItem key={feature.title} {...feature} />
           ))}
@@ -993,15 +1032,15 @@ function PricingSection({
   onSelectPlan: (plan: PlanIntent) => void;
 }) {
   return (
-    <section className="pricing-section" id="pricing">
-      <div className="section-inner">
+    <section className="pricing-section">
+      <div className="section-inner" id="pricing">
         <SectionHeading
           align="center"
           kicker="Beta pricing"
           title="Start with one idea."
           copy="Two straightforward plans for the upcoming beta. No payment is collected today."
         />
-        <div className="pricing-grid" data-reveal>
+        <div className="pricing-grid" data-reveal="group">
           {plans.map((plan) => (
             <PricingCard key={plan.id} plan={plan} onSelect={onSelectPlan} />
           ))}
@@ -1076,14 +1115,14 @@ function FaqSection() {
   };
 
   return (
-    <section className="faq-section" id="faq">
-      <div className="section-inner faq-layout">
+    <section className="faq-section">
+      <div className="section-inner faq-layout" id="faq">
         <SectionHeading
           kicker="FAQ"
           title="Six honest answers."
           copy="LaunchBeam is in private beta, so the answers below separate the working prototype from the planned product."
         />
-        <div className="faq-list" data-reveal>
+        <div className="faq-list" data-reveal="group">
           {faqs.map((item, index) => {
             const isOpen = openIndex === index;
             const triggerId = `faq-trigger-${index}`;
@@ -1126,8 +1165,8 @@ function FaqSection() {
 
 function FinalCta({ onCreate }: { onCreate: () => void }) {
   return (
-    <section className="final-cta-section" id="early-access">
-      <div className="section-inner final-cta" data-reveal>
+    <section className="final-cta-section">
+      <div className="section-inner final-cta" id="early-access" data-reveal="scale">
         <div>
           <span>Private beta</span>
           <h2>Create the audience your launch deserves.</h2>
@@ -1364,7 +1403,7 @@ function SectionHeading({
   align?: "left" | "center";
 }) {
   return (
-    <div className={`section-heading align-${align}`}>
+    <div className={`section-heading align-${align}`} data-reveal="heading">
       <span className="section-kicker">{kicker}</span>
       <h2>{title}</h2>
       <p>{copy}</p>

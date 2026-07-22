@@ -6,6 +6,11 @@ const legacyBrand = ["Seed", "list"].join("");
 const spacedBrand = ["Launch", "Beam"].join(" ");
 const legacyFont = ["Mont", "serrat"].join("");
 const removedFont = ["Ge", "ist"].join("");
+const removedHeroCopy = [
+  "Publish in minutes",
+  "grow through referrals",
+  "and turn early interest into a clear Demand Score.",
+].join(", ");
 
 test("the LaunchBeam page has one positioning and campaign contract", async () => {
   const [landingPage, layout] = await Promise.all([
@@ -25,11 +30,34 @@ test("the LaunchBeam page has one positioning and campaign contract", async () =
   assert.match(landingPage, /demandScore: 78/);
   assert.match(landingPage, /price: "\$9"/);
   assert.match(landingPage, /Six honest answers\./i);
+  assert.equal(landingPage.includes(removedHeroCopy), false);
   assert.doesNotMatch(
     `${landingPage}\n${layout}`,
     new RegExp(`${legacyBrand}|${spacedBrand}|${legacyFont}`, "i"),
   );
   assert.doesNotMatch(landingPage, /react-loading-skeleton|Your site is taking shape/i);
+});
+
+test("Argentum Sans is bundled locally with real interface weights", async () => {
+  const [styles, layout, regular, medium, semibold, license] = await Promise.all([
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../public/fonts/ArgentumSans-Regular.woff2", import.meta.url)),
+    readFile(new URL("../public/fonts/ArgentumSans-Medium.woff2", import.meta.url)),
+    readFile(new URL("../public/fonts/ArgentumSans-SemiBold.woff2", import.meta.url)),
+    readFile(new URL("../public/fonts/OFL.txt", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(styles, /ArgentumSans-Regular\.woff2/);
+  assert.match(styles, /ArgentumSans-Medium\.woff2/);
+  assert.match(styles, /ArgentumSans-SemiBold\.woff2/);
+  assert.match(layout, /ArgentumSans-Regular\.woff2/);
+  assert.match(layout, /ArgentumSans-SemiBold\.woff2/);
+  assert.equal((styles.match(/font-display:\s*swap/g) ?? []).length, 3);
+  assert.ok(regular.length > 10_000);
+  assert.ok(medium.length > 10_000);
+  assert.ok(semibold.length > 10_000);
+  assert.match(license, /SIL OPEN FONT LICENSE/i);
 });
 
 test("starter preview assets are no longer referenced", async () => {
@@ -64,6 +92,8 @@ test("the redesign stays light-only and keeps accessible interactive controls", 
   );
   assert.doesNotMatch(styles, /prefers-color-scheme|\.dark\b|data-theme=["']dark/i);
   assert.match(styles, /prefers-reduced-motion:\s*reduce/);
+  assert.match(styles, /\.section-inner\[id\][\s\S]*scroll-margin-top:\s*96px/);
+  assert.match(styles, /\.motion-ready \[data-reveal\]/);
   assert.match(landingPage, /aria-pressed=/);
   assert.match(landingPage, /aria-live="polite"/);
   assert.match(landingPage, /aria-expanded=/);

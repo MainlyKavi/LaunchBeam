@@ -6,12 +6,16 @@ waitlist and demand-validation platform for early-stage founders.
 ## Included
 
 - Argentum Sans-first marketing system with a monochrome liquid-glass treatment
+- Local Argentum Sans Regular, Medium, and SemiBold WOFF2 files, distributed
+  under the included SIL Open Font License
 - Connected Kimchi product demo with editable copy, three distinct template
   directions, desktop/mobile preview controls, and an analytics view
 - Mathematically consistent example campaign data, clearly labelled throughout
 - Demand Score dashboard with Overview, Sources, and Referrals tabs
 - Two beta pricing plans, six accessible FAQs, and an honest private-beta signal
 - Responsive navigation with focus trapping, Escape handling, and reduced motion
+- Native smooth anchor navigation with fixed-header offsets and progressive,
+  reduced-motion-safe section reveals
 - Host-aware canonical, Open Graph, X, favicon, and structured-data metadata
 - Private-beta request form backed by the existing Cloudflare D1 and Drizzle stack
 
