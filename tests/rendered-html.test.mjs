@@ -127,9 +127,12 @@ test("the marketing palette remains monochrome outside macOS window controls", a
 });
 
 test("the beta signup endpoint validates requests before storage", async () => {
-  const [route, migration] = await Promise.all([
+  const [route, database, migration, vercelConfig, packageJson] = await Promise.all([
     readFile(new URL("../app/api/beta-signups/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0000_classy_roulette.sql", import.meta.url), "utf8"),
+    readFile(new URL("../vercel.json", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
   assert.match(route, /EMAIL_PATTERN/);
@@ -138,6 +141,12 @@ test("the beta signup endpoint validates requests before storage", async () => {
   assert.match(route, /consent !== true/);
   assert.match(route, /onConflictDoUpdate/);
   assert.match(route, /cache-control/);
+  assert.doesNotMatch(database, /^import\s+\{\s*env\s*\}\s+from\s+["']cloudflare:workers["']/m);
+  assert.match(database, /await import\(["']cloudflare:workers["']\)/);
+  assert.match(database, /process\.env\.VERCEL/);
+  assert.match(vercelConfig, /"framework":\s*"nextjs"/);
+  assert.match(vercelConfig, /"buildCommand":\s*"npm run build:vercel"/);
+  assert.match(packageJson, /"build:vercel":\s*"next build"/);
   assert.match(migration, /CREATE TABLE `beta_signups`/);
   assert.match(migration, /`email` text NOT NULL/);
 });

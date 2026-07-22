@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "node build/prepare-vite-for-windows.mjs && vinext dev",
     "build": "node build/prepare-vite-for-windows.mjs && vinext build",
     "start": "node build/prepare-vite-for-windows.mjs && vinext start",
+    "dev:vercel": "next dev",
+    "build:vercel": "next build",
+    "start:vercel": "next start",
     "test": "npm run build && node --test --test-isolation=none tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work --ignore-pattern outputs",
     "typecheck": "tsc --noEmit",

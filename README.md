@@ -37,3 +37,15 @@ npm run db:generate
 
 The Sites build packages migrations from `drizzle/`. A local D1 preview must
 have the generated migration applied before a valid beta request can be stored.
+
+## Deployment targets
+
+- `npm run build` builds the existing Vinext/Cloudflare Sites deployment.
+- `npm run build:vercel` runs the native Next.js build used by Vercel.
+- `vercel.json` pins the Vercel framework preset and build command so dashboard
+  overrides cannot accidentally invoke the Cloudflare build.
+
+The marketing site and local prototype run on either target. Beta signup
+storage currently requires the Cloudflare D1 binding; on Vercel the endpoint
+returns a temporary-unavailable response until a Vercel-compatible database
+adapter and credentials are configured.

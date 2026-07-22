@@ -41,7 +41,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    await getDb()
+    const db = await getDb();
+    await db
       .insert(betaSignups)
       .values({ email: normalizedEmail, plan, consent: true })
       .onConflictDoUpdate({
