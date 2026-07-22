@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.x"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "node build/prepare-vite-for-windows.mjs && vinext dev",
-    "build": "node build/prepare-vite-for-windows.mjs && vite build",
+    "build": "node build/prepare-vite-for-windows.mjs && vinext build",
     "start": "node build/prepare-vite-for-windows.mjs && vinext start",
+    "dev:vercel": "next dev",
+    "build:vercel": "next build",
+    "start:vercel": "next start",
     "test": "npm run build && node --test --test-isolation=none tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work --ignore-pattern outputs",
     "typecheck": "tsc --noEmit",
@@ -18,7 +21,6 @@
     "drizzle-orm": "0.45.2",
     "lucide-react": "^0.545.0",
     "next": "16.2.6",
-    "nitro": "^3.0.260610-beta",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
