@@ -12,17 +12,24 @@
     "dev:vercel": "next dev",
     "build:vercel": "next build",
     "start:vercel": "next start",
-    "test": "npm run build && node --test --test-isolation=none tests/rendered-html.test.mjs",
+    "test": "npm run build && npm run test:core",
+    "test:core": "node --experimental-strip-types --test --test-isolation=none tests/rendered-html.test.mjs tests/saas-core.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work --ignore-pattern outputs",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.8",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "drizzle-orm": "0.45.2",
     "lucide-react": "^0.545.0",
     "next": "16.2.6",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "resend": "^6.18.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",

@@ -3,7 +3,6 @@
 import type {
   FormEvent,
   KeyboardEvent as ReactKeyboardEvent,
-  MouseEvent as ReactMouseEvent,
   ReactNode,
   RefObject,
 } from "react";
@@ -25,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 
 type PlanIntent = "free" | "pro";
 type StudioTab = "page" | "design" | "analytics";
@@ -87,32 +87,32 @@ const featureItems = [
   {
     icon: MousePointer2,
     title: "Waitlist page builder",
-    copy: "Edit campaign copy, templates, and calls to action in the current prototype.",
-    status: "Prototype available",
+    copy: "Create, customize, preview, and publish a polished page from one shared editor.",
+    status: "Available",
   },
   {
     icon: BarChart3,
     title: "Demand Score",
     copy: "Bring conversion and referral signals into one decision-friendly score.",
-    status: "Prototype available",
+    status: "Available",
   },
   {
     icon: Link2,
     title: "Referral attribution",
-    copy: "Give subscribers unique links and connect invited signups to the right referrer.",
-    status: "Planned for beta",
+    copy: "Give every subscriber a unique link and connect invited signups to the right referrer.",
+    status: "Available",
   },
   {
     icon: Users,
     title: "Positions and rewards",
     copy: "Let subscribers see their place and progress toward referral milestones.",
-    status: "Planned for beta",
+    status: "Available",
   },
   {
     icon: Mail,
     title: "Subscriber export",
     copy: "Export the audience you build before moving into your launch stack.",
-    status: "Planned for beta",
+    status: "Available",
   },
   {
     icon: LayoutTemplate,
@@ -165,17 +165,17 @@ const faqs = [
   {
     question: "Can I export my subscriber data?",
     answer:
-      "CSV export is planned for both plans. Production subscriber collection and exports are not live yet.",
+      "Yes. Project owners can search and filter subscribers, then download a server-generated CSV with safe spreadsheet escaping.",
   },
   {
     question: "How does referral tracking work?",
     answer:
-      "LaunchBeam is designed to assign each subscriber a unique link and attribute invited signups. The interface shown today is a prototype.",
+      "Every subscriber receives a unique project-specific link. Valid referred signups move the referrer toward clear one-, three-, and five-referral milestones.",
   },
   {
     question: "What happens when I reach my plan limit?",
     answer:
-      "No limits are enforced during the prototype. Upgrade and limit policies will be published before accounts open.",
+      "The initial Free experience allows one active project. The data model supports more projects when paid plans are introduced.",
   },
   {
     question: "Can I remove LaunchBeam branding?",
@@ -189,13 +189,19 @@ const faqs = [
   },
 ] as const;
 
-export function LandingPage() {
+export function LandingPage({
+  isAuthenticated = false,
+}: {
+  isAuthenticated?: boolean;
+}) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [betaPlan, setBetaPlan] = useState<PlanIntent>("free");
   const [isBetaOpen, setIsBetaOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const accountHref = isAuthenticated ? "/dashboard" : "/signup";
+  const accountLabel = isAuthenticated ? "Open dashboard" : "Create your waitlist";
 
   useLayoutEffect(() => {
     document.documentElement.classList.add("motion-ready");
@@ -334,15 +340,20 @@ export function LandingPage() {
         setIsMenuOpen={setIsMenuOpen}
         menuButtonRef={menuButtonRef}
         mobileMenuRef={mobileMenuRef}
-        onCreate={() => openBeta("free")}
+        accountHref={accountHref}
+        accountLabel={accountLabel}
       />
-      <HeroSection onCreate={() => openBeta("free")} />
+      <HeroSection
+        accountHref={accountHref}
+        accountLabel={accountLabel}
+        onJoinBeta={() => openBeta("free")}
+      />
       <InsightsSection />
       <FeaturesSection />
-      <PricingSection onSelectPlan={openBeta} />
+      <PricingSection isAuthenticated={isAuthenticated} />
       <FaqSection />
-      <FinalCta onCreate={() => openBeta("free")} />
-      <Footer />
+      <FinalCta accountHref={accountHref} accountLabel={accountLabel} />
+      <Footer isAuthenticated={isAuthenticated} />
       <BetaSignupDialog
         key={`${betaPlan}-${isBetaOpen ? "open" : "closed"}`}
         isOpen={isBetaOpen}
@@ -359,14 +370,16 @@ function Navigation({
   setIsMenuOpen,
   menuButtonRef,
   mobileMenuRef,
-  onCreate,
+  accountHref,
+  accountLabel,
 }: {
   isScrolled: boolean;
   isMenuOpen: boolean;
   setIsMenuOpen: (value: boolean) => void;
   menuButtonRef: RefObject<HTMLButtonElement | null>;
   mobileMenuRef: RefObject<HTMLDivElement | null>;
-  onCreate: () => void;
+  accountHref: string;
+  accountLabel: string;
 }) {
   const closeMenu = () => setIsMenuOpen(false);
 
@@ -387,8 +400,8 @@ function Navigation({
         </div>
 
         <div className="nav-actions">
-          <BetaCta plan="free" onSelect={onCreate} size="small">
-            Create your waitlist
+          <BetaCta href={accountHref} size="small">
+            {accountLabel}
           </BetaCta>
         </div>
 
@@ -428,13 +441,9 @@ function Navigation({
               </a>
             ))}
             <BetaCta
-              plan="free"
-              onSelect={() => {
-                closeMenu();
-                onCreate();
-              }}
+              href={accountHref}
             >
-              Create your waitlist
+              {accountLabel}
             </BetaCta>
           </div>
         </>
@@ -443,7 +452,15 @@ function Navigation({
   );
 }
 
-function HeroSection({ onCreate }: { onCreate: () => void }) {
+function HeroSection({
+  accountHref,
+  accountLabel,
+  onJoinBeta,
+}: {
+  accountHref: string;
+  accountLabel: string;
+  onJoinBeta: () => void;
+}) {
   return (
     <section className="hero-section" id="top">
       <div className="section-inner hero-inner">
@@ -454,8 +471,8 @@ function HeroSection({ onCreate }: { onCreate: () => void }) {
             before committing months to your idea.
           </p>
           <div className="hero-actions">
-            <BetaCta plan="free" onSelect={onCreate}>
-              Create your waitlist
+            <BetaCta href={accountHref}>
+              {accountLabel}
             </BetaCta>
             <a className="button secondary" href="#product">
               <span>View demo</span>
@@ -465,6 +482,9 @@ function HeroSection({ onCreate }: { onCreate: () => void }) {
           <p className="trust-line">
             <span>Private beta</span>
             Built for indie founders validating their next idea.
+            <button type="button" onClick={onJoinBeta}>
+              Get beta updates
+            </button>
           </p>
         </div>
 
@@ -991,7 +1011,7 @@ function FeaturesSection() {
         <SectionHeading
           kicker="Product direction"
           title="The launch essentials, without the noise."
-          copy="The current prototype focuses on the page builder and Demand Score. The remaining capabilities are labelled as roadmap items until they are production-ready."
+          copy="The interactive Kimchi demo below is simulated; signed-in projects use real subscribers, referrals, analytics, publishing, and exports."
         />
         <div className="feature-list" data-reveal="group">
           {featureItems.map((feature) => (
@@ -1026,11 +1046,7 @@ function FeatureItem({
   );
 }
 
-function PricingSection({
-  onSelectPlan,
-}: {
-  onSelectPlan: (plan: PlanIntent) => void;
-}) {
+function PricingSection({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <section className="pricing-section">
       <div className="section-inner" id="pricing">
@@ -1042,7 +1058,15 @@ function PricingSection({
         />
         <div className="pricing-grid" data-reveal="group">
           {plans.map((plan) => (
-            <PricingCard key={plan.id} plan={plan} onSelect={onSelectPlan} />
+            <PricingCard
+              key={plan.id}
+              plan={plan}
+              href={
+                isAuthenticated
+                  ? "/dashboard"
+                  : `/signup?plan=${encodeURIComponent(plan.id)}`
+              }
+            />
           ))}
         </div>
       </div>
@@ -1052,10 +1076,10 @@ function PricingSection({
 
 function PricingCard({
   plan,
-  onSelect,
+  href,
 }: {
   plan: (typeof plans)[number];
-  onSelect: (plan: PlanIntent) => void;
+  href: string;
 }) {
   return (
     <div className={`pricing-card ${plan.recommended ? "recommended" : ""}`}>
@@ -1071,8 +1095,7 @@ function PricingCard({
         {plan.id === "pro" ? <span>/month</span> : null}
       </div>
       <BetaCta
-        plan={plan.id}
-        onSelect={() => onSelect(plan.id)}
+        href={href}
         variant={plan.recommended ? "primary" : "secondary"}
       >
         {plan.cta}
@@ -1120,7 +1143,7 @@ function FaqSection() {
         <SectionHeading
           kicker="FAQ"
           title="Six honest answers."
-          copy="LaunchBeam is in private beta, so the answers below separate the working prototype from the planned product."
+          copy="LaunchBeam is in beta, so these answers distinguish working product flows from the remaining roadmap."
         />
         <div className="faq-list" data-reveal="group">
           {faqs.map((item, index) => {
@@ -1163,7 +1186,13 @@ function FaqSection() {
   );
 }
 
-function FinalCta({ onCreate }: { onCreate: () => void }) {
+function FinalCta({
+  accountHref,
+  accountLabel,
+}: {
+  accountHref: string;
+  accountLabel: string;
+}) {
   return (
     <section className="final-cta-section">
       <div className="section-inner final-cta" id="early-access" data-reveal="scale">
@@ -1172,15 +1201,15 @@ function FinalCta({ onCreate }: { onCreate: () => void }) {
           <h2>Create the audience your launch deserves.</h2>
           <p>Start with a focused waitlist and a clearer signal before you build.</p>
         </div>
-        <BetaCta plan="free" onSelect={onCreate}>
-          Create your waitlist
+        <BetaCta href={accountHref}>
+          {accountLabel}
         </BetaCta>
       </div>
     </section>
   );
 }
 
-function Footer() {
+function Footer({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <footer className="site-footer">
       <div className="section-inner footer-inner">
@@ -1194,6 +1223,11 @@ function Footer() {
               {link.label}
             </a>
           ))}
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href={isAuthenticated ? "/dashboard" : "/login"}>
+            {isAuthenticated ? "Dashboard" : "Login"}
+          </Link>
         </nav>
         <p>Private beta. Built for indie founders.</p>
       </div>
@@ -1280,11 +1314,11 @@ function BetaSignupDialog({
         </button>
         <span className="dialog-kicker">LaunchBeam private beta</span>
         <h2 id="beta-dialog-title">
-          {plan === "pro" ? "Start with Pro." : "Create your waitlist."}
+          {plan === "pro" ? "Follow Pro updates." : "Get launch updates."}
         </h2>
         <p>
-          Accounts are not open yet. Join the beta list and we will email you
-          when project creation becomes available.
+          Join the low-volume beta list for product and access updates. You can
+          create an account separately whenever your Supabase project is configured.
         </p>
 
         {status === "success" ? (
@@ -1338,27 +1372,19 @@ function BetaSignupDialog({
 
 function BetaCta({
   children,
-  plan,
-  onSelect,
+  href,
   variant = "primary",
   size = "normal",
 }: {
   children: ReactNode;
-  plan: PlanIntent;
-  onSelect: () => void;
+  href: string;
   variant?: "primary" | "secondary";
   size?: "normal" | "small";
 }) {
-  const handleClick = (event: ReactMouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-    onSelect();
-  };
-
   return (
     <a
       className={`button ${variant} ${size}`}
-      href={`?plan=${plan}#early-access`}
-      onClick={handleClick}
+      href={href}
     >
       <span>{children}</span>
       <ArrowRight size={size === "small" ? 16 : 17} aria-hidden="true" />

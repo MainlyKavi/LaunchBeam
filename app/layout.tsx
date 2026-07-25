@@ -42,8 +42,8 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [
         {
           url: imageUrl,
-          width: 1672,
-          height: 941,
+          width: 1731,
+          height: 909,
           alt: "LaunchBeam waitlist builder and demand score preview",
         },
       ],

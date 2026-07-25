@@ -1,0 +1,1233 @@
+"use client";
+
+import type { ChangeEvent, ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  ArrowLeft,
+  Check,
+  ExternalLink,
+  ImagePlus,
+  Monitor,
+  Redo2,
+  Smartphone,
+  Undo2,
+  Upload,
+} from "lucide-react";
+import type {
+  ProjectContent,
+  ProjectSettings,
+  ProjectTheme,
+  TemplateId,
+} from "@/lib/types";
+import {
+  TEMPLATE_IDS,
+  TEMPLATE_LABELS,
+} from "@/lib/types";
+import {
+  TemplateRenderer,
+  type WaitlistProject,
+} from "@/components/waitlist/template-renderer";
+import { normalizeSlug } from "@/lib/normalize-slug";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import "./editor.css";
+
+type ProjectStatus = "draft" | "published" | "archived";
+type EditorTab = "content" | "design" | "settings";
+type PreviewMode = "desktop" | "mobile";
+type SaveState = "idle" | "saving" | "saved" | "error";
+
+export type EditableProject = WaitlistProject & {
+  status: ProjectStatus;
+  updatedAt: string;
+};
+
+type EditorSnapshot = {
+  name: string;
+  slug: string;
+  templateId: TemplateId;
+  content: ProjectContent;
+  theme: ProjectTheme;
+  settings: ProjectSettings;
+};
+
+const approvedFonts = [
+  { value: "argentum", label: "Argentum Sans" },
+  { value: "editorial", label: "Editorial Serif" },
+  { value: "mono", label: "Modern Mono" },
+] as const;
+
+function snapshot(project: EditableProject): EditorSnapshot {
+  return {
+    name: project.name,
+    slug: project.slug,
+    templateId: project.templateId,
+    content: project.content,
+    theme: project.theme,
+    settings: project.settings,
+  };
+}
+
+function snapshotKey(value: EditorSnapshot) {
+  return JSON.stringify(value);
+}
+
+export function ProjectEditor({
+  initialProject,
+  initialTab = "content",
+  siteUrl,
+}: {
+  initialProject: EditableProject;
+  initialTab?: EditorTab;
+  siteUrl: string;
+}) {
+  const router = useRouter();
+  const [project, setProject] = useState(initialProject);
+  const [tab, setTab] = useState<EditorTab>(initialTab);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveMessage, setSaveMessage] = useState("");
+  const [publishState, setPublishState] = useState<
+    "idle" | "working" | "error"
+  >("idle");
+  const [deleteState, setDeleteState] = useState<"idle" | "working" | "error">(
+    "idle",
+  );
+  const [uploadingField, setUploadingField] = useState<
+    "logoUrl" | "heroImageUrl" | null
+  >(null);
+  const [history, setHistory] = useState<EditorSnapshot[]>([
+    snapshot(initialProject),
+  ]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [lastSavedKey, setLastSavedKey] = useState(
+    snapshotKey(snapshot(initialProject)),
+  );
+  const requestVersionRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const replacedAssetUrlsRef = useRef<string[]>([]);
+  const [saveAttempt, setSaveAttempt] = useState(0);
+
+  const currentSnapshot = useMemo(() => snapshot(project), [project]);
+  const currentKey = useMemo(
+    () => snapshotKey(currentSnapshot),
+    [currentSnapshot],
+  );
+  const isDirty = currentKey !== lastSavedKey;
+
+  const cleanupReplacedAssets = useCallback(
+    async (savedProject: EditableProject) => {
+      const retainedUrls = new Set([
+        savedProject.content.logoUrl,
+        savedProject.content.heroImageUrl,
+      ]);
+      const candidates = [
+        ...new Set(
+          replacedAssetUrlsRef.current.filter(
+            (url) => !retainedUrls.has(url),
+          ),
+        ),
+      ];
+      if (!candidates.length) return;
+
+      const removed = new Set<string>();
+      await Promise.all(
+        candidates.map(async (url) => {
+          try {
+            const response = await fetch(
+              `/api/projects/${savedProject.id}/assets`,
+              {
+                method: "DELETE",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ url }),
+              },
+            );
+            if (response.ok) removed.add(url);
+          } catch {
+            // Cleanup is retried after the next successful save.
+          }
+        }),
+      );
+      replacedAssetUrlsRef.current = replacedAssetUrlsRef.current.filter(
+        (url) => !removed.has(url),
+      );
+    },
+    [],
+  );
+
+  const applySnapshot = useCallback(
+    (next: EditorSnapshot, recordHistory = true) => {
+      setProject((current) => ({ ...current, ...next }));
+      if (!recordHistory) return;
+      setHistory((current) => {
+        const nextHistory = current.slice(0, historyIndex + 1);
+        const previous = nextHistory.at(-1);
+        if (previous && snapshotKey(previous) === snapshotKey(next)) {
+          return current;
+        }
+        nextHistory.push(next);
+        return nextHistory.slice(-50);
+      });
+      setHistoryIndex((current) => Math.min(current + 1, 49));
+    },
+    [historyIndex],
+  );
+
+  const updateProject = useCallback(
+    (updater: (current: EditorSnapshot) => EditorSnapshot) => {
+      applySnapshot(updater(currentSnapshot));
+    },
+    [applySnapshot, currentSnapshot],
+  );
+
+  useEffect(() => {
+    if (currentKey === lastSavedKey) return;
+    const version = ++requestVersionRef.current;
+    const payload = JSON.parse(currentKey) as EditorSnapshot;
+    const timeout = window.setTimeout(async () => {
+      setSaveState("saving");
+      setSaveMessage("");
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      try {
+        const response = await fetch(`/api/projects/${project.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        const body = (await response.json()) as {
+          error?: string;
+          project?: EditableProject;
+        };
+        if (!response.ok || !body.project) {
+          throw new Error(body.error || "Unable to save these changes.");
+        }
+        if (version !== requestVersionRef.current) return;
+        setLastSavedKey(snapshotKey(snapshot(body.project)));
+        setProject(body.project);
+        setSaveState("saved");
+        void cleanupReplacedAssets(body.project);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (version !== requestVersionRef.current) return;
+        setSaveState("error");
+        setSaveMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to save these changes.",
+        );
+      }
+    }, 700);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    cleanupReplacedAssets,
+    currentKey,
+    lastSavedKey,
+    project.id,
+    saveAttempt,
+  ]);
+
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty && saveState !== "saving") return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [isDirty, saveState]);
+
+  function undo() {
+    if (historyIndex <= 0) return;
+    const nextIndex = historyIndex - 1;
+    const next = history[nextIndex];
+    if (!next) return;
+    setHistoryIndex(nextIndex);
+    applySnapshot(next, false);
+  }
+
+  function redo() {
+    if (historyIndex >= history.length - 1) return;
+    const nextIndex = historyIndex + 1;
+    const next = history[nextIndex];
+    if (!next) return;
+    setHistoryIndex(nextIndex);
+    applySnapshot(next, false);
+  }
+
+  async function togglePublish() {
+    setPublishState("working");
+    setSaveMessage("");
+    try {
+      if (isDirty) {
+        abortRef.current?.abort();
+        requestVersionRef.current += 1;
+        const saveResponse = await fetch(`/api/projects/${project.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(currentSnapshot),
+        });
+        const body = (await saveResponse.json()) as {
+          error?: string;
+          project?: EditableProject;
+        };
+        if (!saveResponse.ok || !body.project) {
+          throw new Error(body.error || "Save the project before publishing.");
+        }
+        setLastSavedKey(snapshotKey(snapshot(body.project)));
+        setProject(body.project);
+        setSaveState("saved");
+        void cleanupReplacedAssets(body.project);
+      }
+
+      const response = await fetch(`/api/projects/${project.id}/publish`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: project.status === "published" ? "unpublish" : "publish",
+        }),
+      });
+      const body = (await response.json()) as {
+        error?: string;
+        status?: ProjectStatus;
+      };
+      if (!response.ok || !body.status) {
+        throw new Error(body.error || "Unable to change publication status.");
+      }
+      setProject((current) => ({ ...current, status: body.status! }));
+      setPublishState("idle");
+    } catch (error) {
+      setPublishState("error");
+      setSaveMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to change publication status.",
+      );
+    }
+  }
+
+  async function deleteProject() {
+    const confirmed = window.confirm(
+      `Delete ${project.name}? This permanently removes the project, its subscribers, and analytics.`,
+    );
+    if (!confirmed) return;
+
+    setDeleteState("working");
+    setSaveMessage("");
+    abortRef.current?.abort();
+    requestVersionRef.current += 1;
+
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error || "Unable to delete this project.");
+      }
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (error) {
+      setDeleteState("error");
+      setSaveMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete this project.",
+      );
+    }
+  }
+
+  async function uploadAsset(
+    event: ChangeEvent<HTMLInputElement>,
+    field: "logoUrl" | "heroImageUrl",
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const replacedUrl = project.content[field];
+    setUploadingField(field);
+    setSaveMessage("");
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      formData.set("field", field === "logoUrl" ? "logo" : "hero");
+      const response = await fetch(`/api/projects/${project.id}/assets`, {
+        method: "POST",
+        body: formData,
+      });
+      const body = (await response.json()) as { error?: string; url?: string };
+      if (!response.ok || !body.url) {
+        throw new Error(body.error || "Unable to upload that image.");
+      }
+      if (
+        replacedUrl &&
+        replacedUrl !== body.url &&
+        replacedUrl.includes("/storage/v1/object/")
+      ) {
+        replacedAssetUrlsRef.current.push(replacedUrl);
+      }
+      updateProject((current) => ({
+        ...current,
+        content: { ...current.content, [field]: body.url! },
+      }));
+    } catch (error) {
+      setSaveState("error");
+      setSaveMessage(
+        error instanceof Error ? error.message : "Unable to upload that image.",
+      );
+    } finally {
+      setUploadingField(null);
+    }
+  }
+
+  function removeAsset(field: "logoUrl" | "heroImageUrl") {
+    const currentUrl = project.content[field];
+    if (!currentUrl) return;
+    if (currentUrl.includes("/storage/v1/object/")) {
+      replacedAssetUrlsRef.current.push(currentUrl);
+    }
+    updateProject((current) => ({
+      ...current,
+      content: { ...current.content, [field]: null },
+    }));
+  }
+
+  const publicUrl = `${siteUrl.replace(/\/$/, "")}/${project.slug}`;
+
+  return (
+    <main className="project-editor">
+      <header className="editor-topbar">
+        <div className="editor-project-heading">
+          <Link
+            className="editor-back"
+            href="/dashboard"
+            aria-label="Back to dashboard"
+          >
+            <ArrowLeft size={18} aria-hidden="true" />
+          </Link>
+          <div>
+            <span>
+              {project.status === "published" ? "Published" : "Draft"} project
+            </span>
+            <strong>{project.name}</strong>
+          </div>
+        </div>
+
+        <div className="editor-status" aria-live="polite">
+          {saveState === "saving" ? "Saving..." : null}
+          {saveState === "saved" ? (
+            <>
+              <Check size={14} aria-hidden="true" /> Saved
+            </>
+          ) : null}
+          {saveState === "error" ? (
+            <>
+              Unable to save
+              <button
+                type="button"
+                onClick={() => {
+                  setSaveState("saving");
+                  setSaveAttempt((current) => current + 1);
+                }}
+              >
+                Retry
+              </button>
+            </>
+          ) : null}
+        </div>
+
+        <div className="editor-actions">
+          <button
+            type="button"
+            className="editor-icon-button"
+            onClick={undo}
+            disabled={historyIndex <= 0}
+            aria-label="Undo"
+          >
+            <Undo2 size={17} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="editor-icon-button"
+            onClick={redo}
+            disabled={historyIndex >= history.length - 1}
+            aria-label="Redo"
+          >
+            <Redo2 size={17} aria-hidden="true" />
+          </button>
+          <a
+            className="editor-button secondary"
+            href={`/preview/${project.id}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Preview
+            <ExternalLink size={15} aria-hidden="true" />
+          </a>
+          {project.status === "published" ? (
+            <a
+              className="editor-button secondary editor-public-link"
+              href={publicUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open live page
+              <ExternalLink size={15} aria-hidden="true" />
+            </a>
+          ) : null}
+          <button
+            type="button"
+            className="editor-button primary"
+            onClick={togglePublish}
+            disabled={publishState === "working"}
+          >
+            {publishState === "working"
+              ? "Working..."
+              : project.status === "published"
+                ? "Unpublish"
+                : "Publish"}
+          </button>
+        </div>
+      </header>
+
+      {saveMessage ? (
+        <div className="editor-error-banner" role="alert">
+          {saveMessage}
+        </div>
+      ) : null}
+
+      <div className="editor-workspace">
+        <aside className="editor-controls">
+          <div className="editor-tabs" role="tablist" aria-label="Editor sections">
+            {(["content", "design", "settings"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
+
+          <div className="editor-panel" role="tabpanel">
+            {tab === "content" ? (
+              <ContentControls
+                project={project}
+                updateProject={updateProject}
+                uploadingField={uploadingField}
+                onUpload={uploadAsset}
+                onRemove={removeAsset}
+              />
+            ) : null}
+            {tab === "design" ? (
+              <DesignControls
+                project={project}
+                updateProject={updateProject}
+              />
+            ) : null}
+            {tab === "settings" ? (
+              <SettingsControls
+                project={project}
+                publicUrl={publicUrl}
+                updateProject={updateProject}
+                deleteState={deleteState}
+                onDelete={deleteProject}
+              />
+            ) : null}
+          </div>
+        </aside>
+
+        <section className="editor-preview-area" aria-label="Live preview">
+          <div className="preview-toolbar">
+            <span>Live preview</span>
+            <div role="group" aria-label="Preview size">
+              <button
+                type="button"
+                aria-pressed={previewMode === "desktop"}
+                onClick={() => setPreviewMode("desktop")}
+              >
+                <Monitor size={16} aria-hidden="true" />
+                Desktop
+              </button>
+              <button
+                type="button"
+                aria-pressed={previewMode === "mobile"}
+                onClick={() => setPreviewMode("mobile")}
+              >
+                <Smartphone size={16} aria-hidden="true" />
+                Mobile
+              </button>
+            </div>
+          </div>
+          <div className={`editor-preview-frame is-${previewMode}`}>
+            <div className="editor-preview-document">
+              <TemplateRenderer project={project} mode="editor" />
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function SectionTitle({
+  title,
+  copy,
+}: {
+  title: string;
+  copy: string;
+}) {
+  return (
+    <header className="editor-section-title">
+      <h2>{title}</h2>
+      <p>{copy}</p>
+    </header>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <label className="editor-field">
+      <span>
+        {label}
+        {hint ? <small>{hint}</small> : null}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function ContentControls({
+  project,
+  updateProject,
+  uploadingField,
+  onUpload,
+  onRemove,
+}: {
+  project: EditableProject;
+  updateProject: (updater: (current: EditorSnapshot) => EditorSnapshot) => void;
+  uploadingField: "logoUrl" | "heroImageUrl" | null;
+  onUpload: (
+    event: ChangeEvent<HTMLInputElement>,
+    field: "logoUrl" | "heroImageUrl",
+  ) => void;
+  onRemove: (field: "logoUrl" | "heroImageUrl") => void;
+}) {
+  const updateContent = <Key extends keyof ProjectContent>(
+    key: Key,
+    value: ProjectContent[Key],
+  ) =>
+    updateProject((current) => ({
+      ...current,
+      content: { ...current.content, [key]: value },
+    }));
+
+  return (
+    <div className="editor-control-stack">
+      <SectionTitle
+        title="Content"
+        copy="Tell visitors what makes this launch worth following."
+      />
+      <Field label="Project name" hint={`${project.name.length}/80`}>
+        <input
+          value={project.name}
+          maxLength={80}
+          onChange={(event) =>
+            updateProject((current) => ({
+              ...current,
+              name: event.target.value,
+            }))
+          }
+        />
+      </Field>
+      <Field
+        label="Product name"
+        hint={`${(project.content.productName ?? "").length}/80`}
+      >
+        <input
+          value={project.content.productName ?? ""}
+          maxLength={80}
+          placeholder={project.name}
+          onChange={(event) => updateContent("productName", event.target.value)}
+        />
+      </Field>
+      <Field label="Kicker" hint={`${project.content.kicker.length}/60`}>
+        <input
+          value={project.content.kicker}
+          maxLength={60}
+          onChange={(event) => updateContent("kicker", event.target.value)}
+        />
+      </Field>
+      <Field label="Headline" hint={`${project.content.headline.length}/140`}>
+        <textarea
+          value={project.content.headline}
+          maxLength={140}
+          rows={4}
+          onChange={(event) => updateContent("headline", event.target.value)}
+        />
+      </Field>
+      <Field
+        label="Description"
+        hint={`${project.content.description.length}/400`}
+      >
+        <textarea
+          value={project.content.description}
+          maxLength={400}
+          rows={5}
+          onChange={(event) => updateContent("description", event.target.value)}
+        />
+      </Field>
+      <Field
+        label="CTA button"
+        hint={`${project.content.buttonText.length}/60`}
+      >
+        <input
+          value={project.content.buttonText}
+          maxLength={60}
+          onChange={(event) => updateContent("buttonText", event.target.value)}
+        />
+      </Field>
+      <div className="editor-field-grid">
+        <Field
+          label="Success title"
+          hint={`${project.content.successTitle.length}/100`}
+        >
+          <input
+            value={project.content.successTitle}
+            maxLength={100}
+            onChange={(event) =>
+              updateContent("successTitle", event.target.value)
+            }
+          />
+        </Field>
+        <Field
+          label="Success message"
+          hint={`${project.content.successMessage.length}/240`}
+        >
+          <textarea
+            value={project.content.successMessage}
+            maxLength={240}
+            rows={3}
+            onChange={(event) =>
+              updateContent("successMessage", event.target.value)
+            }
+          />
+        </Field>
+      </div>
+      <AssetField
+        label="Logo"
+        field="logoUrl"
+        currentUrl={project.content.logoUrl}
+        uploading={uploadingField === "logoUrl"}
+        onUpload={onUpload}
+        onRemove={onRemove}
+      />
+      <AssetField
+        label="Hero image or product screenshot"
+        field="heroImageUrl"
+        currentUrl={project.content.heroImageUrl}
+        uploading={uploadingField === "heroImageUrl"}
+        onUpload={onUpload}
+        onRemove={onRemove}
+      />
+      <div className="social-links-editor">
+        <div className="editor-field-heading">
+          <span>Social links</span>
+          <button
+            type="button"
+            disabled={project.content.socialLinks.length >= 5}
+            onClick={() =>
+              updateContent("socialLinks", [
+                ...project.content.socialLinks,
+                { platform: "Website", url: "https://" },
+              ])
+            }
+          >
+            Add link
+          </button>
+        </div>
+        {project.content.socialLinks.map((link, index) => (
+          <div className="social-link-row" key={`${index}-${link.platform}`}>
+            <input
+              aria-label={`Social link ${index + 1} platform`}
+              value={link.platform}
+              maxLength={40}
+              onChange={(event) => {
+                const links = [...project.content.socialLinks];
+                links[index] = { ...link, platform: event.target.value };
+                updateContent("socialLinks", links);
+              }}
+            />
+            <input
+              aria-label={`Social link ${index + 1} URL`}
+              value={link.url}
+              maxLength={500}
+              inputMode="url"
+              onChange={(event) => {
+                const links = [...project.content.socialLinks];
+                links[index] = { ...link, url: event.target.value };
+                updateContent("socialLinks", links);
+              }}
+            />
+            <button
+              type="button"
+              aria-label={`Remove social link ${index + 1}`}
+              onClick={() =>
+                updateContent(
+                  "socialLinks",
+                  project.content.socialLinks.filter(
+                    (_, linkIndex) => linkIndex !== index,
+                  ),
+                )
+              }
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AssetField({
+  label,
+  field,
+  currentUrl,
+  uploading,
+  onUpload,
+  onRemove,
+}: {
+  label: string;
+  field: "logoUrl" | "heroImageUrl";
+  currentUrl: string | null;
+  uploading: boolean;
+  onUpload: (
+    event: ChangeEvent<HTMLInputElement>,
+    field: "logoUrl" | "heroImageUrl",
+  ) => void;
+  onRemove: (field: "logoUrl" | "heroImageUrl") => void;
+}) {
+  return (
+    <div className="asset-field">
+      <div className="editor-field-heading">
+        <span>{label}</span>
+        {currentUrl ? (
+          <button type="button" onClick={() => onRemove(field)}>
+            Remove
+          </button>
+        ) : null}
+      </div>
+      <label className="asset-dropzone">
+        {currentUrl ? (
+          // Storage URLs are validated before persistence.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={currentUrl} alt={`${label} preview`} />
+        ) : (
+          <span>
+            {field === "logoUrl" ? (
+              <ImagePlus size={22} aria-hidden="true" />
+            ) : (
+              <Upload size={22} aria-hidden="true" />
+            )}
+            {uploading
+              ? "Uploading..."
+              : "Upload JPG, PNG, WebP, or AVIF (up to 5 MB)"}
+          </span>
+        )}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          disabled={uploading}
+          onChange={(event) => onUpload(event, field)}
+        />
+      </label>
+    </div>
+  );
+}
+
+function DesignControls({
+  project,
+  updateProject,
+}: {
+  project: EditableProject;
+  updateProject: (updater: (current: EditorSnapshot) => EditorSnapshot) => void;
+}) {
+  const updateTheme = <Key extends keyof ProjectTheme>(
+    key: Key,
+    value: ProjectTheme[Key],
+  ) =>
+    updateProject((current) => ({
+      ...current,
+      theme: { ...current.theme, [key]: value },
+    }));
+
+  return (
+    <div className="editor-control-stack">
+      <SectionTitle
+        title="Design"
+        copy="Choose a distinct starting point, then tune the details."
+      />
+      <fieldset className="template-picker">
+        <legend>Template</legend>
+        {TEMPLATE_IDS.map((templateId) => (
+          <button
+            key={templateId}
+            type="button"
+            aria-pressed={project.templateId === templateId}
+            onClick={() =>
+              updateProject((current) => ({
+                ...current,
+                templateId,
+              }))
+            }
+          >
+            <span className={`template-thumbnail thumbnail-${templateId}`} />
+            <span>
+              <strong>{TEMPLATE_LABELS[templateId]}</strong>
+              <small>{templateDescription(templateId)}</small>
+            </span>
+          </button>
+        ))}
+      </fieldset>
+      <div className="editor-color-grid">
+        <ColorField
+          label="Background"
+          value={project.theme.background}
+          onChange={(value) => updateTheme("background", value)}
+        />
+        <ColorField
+          label="Foreground"
+          value={project.theme.foreground}
+          onChange={(value) => updateTheme("foreground", value)}
+        />
+        <ColorField
+          label="Muted text"
+          value={project.theme.muted}
+          onChange={(value) => updateTheme("muted", value)}
+        />
+        <ColorField
+          label="Accent"
+          value={project.theme.accent}
+          onChange={(value) => updateTheme("accent", value)}
+        />
+      </div>
+      <Field label="Font">
+        <select
+          value={project.theme.font}
+          onChange={(event) =>
+            updateTheme("font", event.target.value as ProjectTheme["font"])
+          }
+        >
+          {approvedFonts.map((font) => (
+            <option value={font.value} key={font.value}>
+              {font.label}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Border radius" hint={`${project.theme.radius}px`}>
+        <input
+          type="range"
+          min={0}
+          max={36}
+          step={1}
+          value={project.theme.radius}
+          onChange={(event) =>
+            updateTheme("radius", Number(event.target.value))
+          }
+        />
+      </Field>
+      <SegmentedField label="Text alignment">
+        {(["left", "center"] as const).map((value) => (
+          <button
+            type="button"
+            key={value}
+            aria-pressed={project.theme.alignment === value}
+            onClick={() => updateTheme("alignment", value)}
+          >
+            {value}
+          </button>
+        ))}
+      </SegmentedField>
+      <SegmentedField label="Button style">
+        {(["solid", "outline", "soft", "glass"] as const).map((value) => (
+          <button
+            type="button"
+            key={value}
+            aria-pressed={project.theme.buttonStyle === value}
+            onClick={() => updateTheme("buttonStyle", value)}
+          >
+            {value}
+          </button>
+        ))}
+      </SegmentedField>
+      <SegmentedField label="Animation">
+        {(["none", "subtle", "expressive"] as const).map((value) => (
+          <button
+            type="button"
+            key={value}
+            aria-pressed={project.theme.animation === value}
+            onClick={() => updateTheme("animation", value)}
+          >
+            {value}
+          </button>
+        ))}
+      </SegmentedField>
+    </div>
+  );
+}
+
+function templateDescription(templateId: TemplateId) {
+  const descriptions: Record<TemplateId, string> = {
+    "minimal-beam": "Quiet and precise",
+    kimchi: "Liquid glass",
+    kevinora: "Warm editorial",
+    spotbeam: "Product split",
+    darkrai: "Cinematic dark",
+  };
+  return descriptions[templateId];
+}
+
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="color-field">
+      <span>{label}</span>
+      <span>
+        <input
+          type="color"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <input
+          value={value}
+          maxLength={9}
+          spellCheck={false}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </span>
+    </label>
+  );
+}
+
+function SegmentedField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <fieldset className="segmented-field">
+      <legend>{label}</legend>
+      <div>{children}</div>
+    </fieldset>
+  );
+}
+
+function SettingsControls({
+  project,
+  publicUrl,
+  updateProject,
+  deleteState,
+  onDelete,
+}: {
+  project: EditableProject;
+  publicUrl: string;
+  updateProject: (updater: (current: EditorSnapshot) => EditorSnapshot) => void;
+  deleteState: "idle" | "working" | "error";
+  onDelete: () => void;
+}) {
+  const updateSettings = <Key extends keyof ProjectSettings>(
+    key: Key,
+    value: ProjectSettings[Key],
+  ) =>
+    updateProject((current) => ({
+      ...current,
+      settings: { ...current.settings, [key]: value },
+    }));
+
+  return (
+    <div className="editor-control-stack">
+      <SectionTitle
+        title="Settings"
+        copy="Control the signup experience without adding unsafe custom code."
+      />
+      <Field
+        label="Public slug"
+        hint={
+          project.status === "published"
+            ? "Changing this breaks old links unless you add a redirect."
+            : undefined
+        }
+      >
+        <input
+          value={project.slug}
+          minLength={3}
+          maxLength={40}
+          spellCheck={false}
+          onChange={(event) =>
+            updateProject((current) => ({
+              ...current,
+              slug: normalizeSlug(event.target.value).slice(0, 40),
+            }))
+          }
+        />
+      </Field>
+      <p className="editor-public-url">{publicUrl}</p>
+      <ToggleField
+        label="Show signup count"
+        copy="Display the number of subscribers on the public page."
+        checked={project.settings.showSignupCount}
+        onChange={(value) => updateSettings("showSignupCount", value)}
+      />
+      <ToggleField
+        label="Enable referrals"
+        copy="Give subscribers a unique referral URL and milestone progress."
+        checked={project.settings.referralsEnabled}
+        onChange={(value) => updateSettings("referralsEnabled", value)}
+      />
+      <ToggleField
+        label="Collect subscriber name"
+        copy="Add an optional name field to the signup form."
+        checked={project.settings.collectName}
+        onChange={(value) => updateSettings("collectName", value)}
+      />
+      <ToggleField
+        label="Require email confirmation"
+        copy="Pending subscribers confirm by email before referral credit is awarded."
+        checked={project.settings.requireEmailVerification}
+        onChange={(value) =>
+          updateSettings("requireEmailVerification", value)
+        }
+      />
+      <ToggleField
+        label="Custom question"
+        copy="Ask one short question after the email field."
+        checked={Boolean(project.settings.customQuestion)}
+        onChange={(value) =>
+          updateSettings(
+            "customQuestion",
+            value ? { label: "What are you hoping to solve?", required: false } : null,
+          )
+        }
+      />
+      {project.settings.customQuestion ? (
+        <div className="custom-question-settings">
+          <Field
+            label="Question"
+            hint={`${project.settings.customQuestion.label.length}/120`}
+          >
+            <input
+              value={project.settings.customQuestion.label}
+              maxLength={120}
+              onChange={(event) =>
+                updateSettings("customQuestion", {
+                  ...project.settings.customQuestion!,
+                  label: event.target.value,
+                })
+              }
+            />
+          </Field>
+          <ToggleField
+            label="Required"
+            copy="Visitors must answer before joining."
+            checked={project.settings.customQuestion.required}
+            onChange={(value) =>
+              updateSettings("customQuestion", {
+                ...project.settings.customQuestion!,
+                required: value,
+              })
+            }
+          />
+        </div>
+      ) : null}
+      <Field label="Privacy policy URL">
+        <input
+          type="url"
+          inputMode="url"
+          value={project.settings.privacyUrl ?? ""}
+          placeholder="https://example.com/privacy"
+          onChange={(event) =>
+            updateSettings("privacyUrl", event.target.value || null)
+          }
+        />
+      </Field>
+      <div className="editor-security-note">
+        Custom HTML, JavaScript, and unrestricted CSS are intentionally disabled.
+      </div>
+      <section className="editor-danger-zone" aria-labelledby="danger-zone-title">
+        <div>
+          <strong id="danger-zone-title">Delete project</strong>
+          <p>
+            Permanently remove this project, its subscribers, and analytics.
+            This action cannot be undone.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={deleteState === "working"}
+        >
+          {deleteState === "working" ? "Deleting..." : "Delete project"}
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function ToggleField({
+  label,
+  copy,
+  checked,
+  onChange,
+}: {
+  label: string;
+  copy: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="toggle-field">
+      <span>
+        <strong>{label}</strong>
+        <small>{copy}</small>
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+    </label>
+  );
+}

@@ -394,6 +394,24 @@ h1, h2, h3, p { margin: 0; }
   font-weight: 600;
 }
 
+.trust-line button {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.trust-line button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 .hero-visual {
   min-width: 0;
   transform: translate3d(0, var(--hero-parallax, 0), 0);

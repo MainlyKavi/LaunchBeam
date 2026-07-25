@@ -1,5 +1,6 @@
 import { betaSignups } from "@/db/schema";
 import { getDb } from "@/db";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -41,14 +42,29 @@ export async function POST(request: Request) {
   }
 
   try {
-    const db = await getDb();
-    await db
-      .insert(betaSignups)
-      .values({ email: normalizedEmail, plan, consent: true })
-      .onConflictDoUpdate({
-        target: betaSignups.email,
-        set: { plan, consent: true },
-      });
+    const hasSupabaseAdmin = Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() &&
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() &&
+        process.env.SUPABASE_SERVICE_ROLE_KEY?.trim(),
+    );
+
+    if (hasSupabaseAdmin) {
+      const supabase = getSupabaseAdmin();
+      const { error } = await supabase.from("beta_signups").upsert(
+        { email: normalizedEmail, plan, consent: true },
+        { onConflict: "email" },
+      );
+      if (error) throw error;
+    } else {
+      const db = await getDb();
+      await db
+        .insert(betaSignups)
+        .values({ email: normalizedEmail, plan, consent: true })
+        .onConflictDoUpdate({
+          target: betaSignups.email,
+          set: { plan, consent: true },
+        });
+    }
 
     return json(
       { message: "We saved your request and will email you when beta access opens." },

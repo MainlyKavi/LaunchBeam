@@ -98,7 +98,14 @@ test("the redesign stays light-only and keeps accessible interactive controls", 
   assert.match(landingPage, /aria-live="polite"/);
   assert.match(landingPage, /aria-expanded=/);
   assert.match(landingPage, /aria-controls=/);
-  assert.match(landingPage, /href=\{`\?plan=\$\{plan\}#early-access`\}/);
+  assert.match(
+    landingPage,
+    /window\.history\.replaceState\(null,\s*"",\s*`\?plan=\$\{plan\}#early-access`\)/,
+  );
+  assert.match(
+    landingPage,
+    /const accountHref = isAuthenticated \? "\/dashboard" : "\/signup"/,
+  );
   assert.match(landingPage, /Enter a valid email address\./);
   assert.doesNotMatch(landingPage, /signin-with-chatgpt|name:\s*["']Growth["']/i);
 });

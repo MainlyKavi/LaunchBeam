@@ -1,0 +1,356 @@
+.project-analytics-page {
+  width: min(calc(100% - 40px), 1180px);
+  margin: 0 auto;
+  padding: 42px 0 90px;
+}
+
+.analytics-header {
+  padding-right: 0;
+}
+
+.analytics-ranges {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 26px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #e7e7ea;
+}
+
+.analytics-ranges a {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 9px;
+  color: #717177;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.analytics-ranges a[aria-current="page"] {
+  color: #202023;
+  background: white;
+  box-shadow: 0 1px 3px rgba(17, 17, 18, 0.09);
+}
+
+.analytics-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-top: 38px;
+  border: 1px solid rgba(17, 17, 18, 0.09);
+  border-radius: 17px;
+  background: rgba(17, 17, 18, 0.08);
+}
+
+.analytics-metric-grid article {
+  display: grid;
+  min-height: 112px;
+  align-content: center;
+  gap: 9px;
+  padding: 16px;
+  background: white;
+}
+
+.analytics-metric-grid span {
+  color: #7b7b82;
+  font-size: 0.65rem;
+  line-height: 1.35;
+}
+
+.analytics-metric-grid strong {
+  font-size: clamp(1.2rem, 2vw, 1.8rem);
+  letter-spacing: -0.04em;
+}
+
+.analytics-primary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.analytics-card {
+  border: 1px solid rgba(17, 17, 18, 0.09);
+  border-radius: 17px;
+  background: white;
+}
+
+.analytics-card > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 21px 22px 0;
+}
+
+.analytics-card header h2,
+.analytics-card header span {
+  margin: 0;
+}
+
+.analytics-card header span {
+  color: #88888f;
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.analytics-card header h2 {
+  margin-top: 5px;
+  font-size: 1rem;
+  letter-spacing: -0.025em;
+}
+
+.analytics-card header > strong {
+  color: #77777e;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.analytics-chart-card {
+  min-height: 350px;
+}
+
+.project-analytics-page > .analytics-chart-card {
+  margin-top: 14px;
+}
+
+.analytics-bars {
+  display: flex;
+  height: 250px;
+  gap: clamp(3px, 0.7vw, 9px);
+  align-items: flex-end;
+  padding: 34px 22px 24px;
+}
+
+.analytics-bar-column {
+  display: grid;
+  height: 100%;
+  min-width: 0;
+  flex: 1;
+  grid-template-rows: minmax(0, 1fr) 17px;
+  align-items: end;
+  gap: 7px;
+}
+
+.analytics-bar-column > span {
+  display: block;
+  width: 100%;
+  min-height: 4px;
+  border-radius: 5px 5px 2px 2px;
+  background: #1b1b1e;
+}
+
+.analytics-bar-column small {
+  overflow: visible;
+  color: #96969c;
+  font-size: 0.54rem;
+  white-space: nowrap;
+}
+
+.analytics-empty-copy {
+  color: #85858c;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.analytics-empty-copy.large {
+  display: grid;
+  min-height: 260px;
+  margin: 0;
+  place-items: center;
+  padding: 30px;
+  text-align: center;
+}
+
+.demand-score-card {
+  min-height: 350px;
+  color: white;
+  background: #171719;
+}
+
+.demand-score-card header span,
+.demand-score-card header > strong,
+.demand-score-card .demand-formula {
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.analytics-score-number {
+  display: flex;
+  align-items: baseline;
+  padding: 26px 22px 16px;
+}
+
+.analytics-score-number strong {
+  font-size: clamp(4rem, 8vw, 6.4rem);
+  line-height: 0.9;
+  letter-spacing: -0.08em;
+}
+
+.analytics-score-number span {
+  margin-left: 7px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.78rem;
+}
+
+.score-breakdown {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 22px 18px;
+}
+
+.score-breakdown div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 0.68rem;
+}
+
+.score-breakdown dd {
+  margin: 0;
+  color: white;
+  font-weight: 600;
+}
+
+.demand-threshold {
+  display: grid;
+  gap: 12px;
+  padding: 42px 22px 22px;
+}
+
+.demand-threshold > strong {
+  font-size: clamp(2.3rem, 5vw, 4.4rem);
+  letter-spacing: -0.06em;
+}
+
+.demand-threshold p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.demand-threshold progress {
+  width: 100%;
+  height: 7px;
+  accent-color: white;
+}
+
+.demand-formula {
+  margin: 0;
+  padding: 0 22px 20px;
+  font-size: 0.61rem;
+  line-height: 1.5;
+}
+
+.analytics-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.breakdown-card {
+  min-height: 260px;
+}
+
+.breakdown-card ol {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 22px;
+  list-style: none;
+}
+
+.breakdown-card li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  color: #5e5e64;
+  font-size: 0.7rem;
+}
+
+.breakdown-card li > span {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breakdown-card li i {
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: #232326;
+}
+
+.breakdown-card li strong {
+  color: #242427;
+}
+
+.breakdown-card > .analytics-empty-copy {
+  padding: 24px 22px;
+}
+
+.analytics-data-note {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #eadcba;
+  border-radius: 11px;
+  color: #765416;
+  background: #fff9e9;
+  font-size: 0.69rem;
+}
+
+@media (max-width: 1050px) {
+  .analytics-metric-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .analytics-primary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .project-analytics-page {
+    width: min(calc(100% - 28px), 1180px);
+    padding-top: 28px;
+  }
+
+  .analytics-ranges {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    width: 100%;
+  }
+
+  .analytics-ranges a {
+    justify-content: center;
+    padding-inline: 5px;
+  }
+
+  .analytics-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analytics-breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-bars {
+    overflow-x: auto;
+  }
+
+  .analytics-bar-column {
+    min-width: 8px;
+  }
+}

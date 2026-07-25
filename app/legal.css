@@ -1,0 +1,129 @@
+.legal-page {
+  min-height: 100svh;
+  color: #19191b;
+  background:
+    radial-gradient(circle at 10% 0, #fff, transparent 28%),
+    #f3f3f5;
+}
+
+.legal-nav,
+.legal-footer {
+  display: flex;
+  width: min(calc(100% - 40px), 1080px);
+  min-height: 78px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-inline: auto;
+}
+
+.legal-nav > div,
+.legal-footer > div {
+  display: flex;
+  gap: 22px;
+  color: #6f6f75;
+  font-size: 0.76rem;
+}
+
+.legal-nav a:focus-visible,
+.legal-footer a:focus-visible {
+  outline: 2px solid #19191b;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.legal-document {
+  width: min(calc(100% - 40px), 820px);
+  margin: 42px auto 90px;
+  padding: clamp(28px, 7vw, 72px);
+  border: 1px solid rgba(17, 17, 18, 0.08);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 30px 80px rgba(17, 17, 18, 0.06);
+}
+
+.legal-document header > p {
+  margin: 0;
+  color: #83838a;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.legal-document h1 {
+  margin: 15px 0 28px;
+  font-size: clamp(3.2rem, 10vw, 6.3rem);
+  line-height: 0.95;
+  letter-spacing: -0.07em;
+}
+
+.legal-notice {
+  padding: 16px 18px;
+  border: 1px solid #dfd8bf;
+  border-radius: 13px;
+  color: #665a32;
+  background: #fffbea;
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.legal-document section {
+  padding-top: 38px;
+}
+
+.legal-document h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.025em;
+}
+
+.legal-document section p,
+.legal-document li {
+  color: #606066;
+  font-size: 0.88rem;
+  line-height: 1.75;
+}
+
+.legal-document section p {
+  margin: 13px 0 0;
+}
+
+.legal-document ul {
+  display: grid;
+  gap: 8px;
+  margin: 15px 0 0;
+  padding-left: 20px;
+}
+
+.legal-document li strong {
+  color: #2b2b2e;
+}
+
+.legal-footer {
+  min-height: 92px;
+  border-top: 1px solid rgba(17, 17, 18, 0.09);
+  color: #898990;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 560px) {
+  .legal-nav,
+  .legal-footer,
+  .legal-document {
+    width: min(calc(100% - 28px), 1080px);
+  }
+
+  .legal-nav {
+    min-height: 68px;
+  }
+
+  .legal-nav > div {
+    gap: 14px;
+  }
+
+  .legal-document {
+    margin-top: 24px;
+    padding: 28px 20px 42px;
+    border-radius: 19px;
+  }
+}

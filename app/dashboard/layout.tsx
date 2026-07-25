@@ -1,0 +1,131 @@
+import {
+  ExternalLink,
+  LayoutDashboard,
+  Menu,
+  Plus,
+} from "lucide-react";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { LogoutButton } from "./logout-button";
+import "./dashboard.css";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
+function getAccountInitial(email: string | null): string {
+  return email?.trim().charAt(0) || "L";
+}
+
+function DashboardNavigation({ email }: { email: string | null }) {
+  return (
+    <>
+      <aside className="db-sidebar">
+        <Link className="db-brand" href="/dashboard" aria-label="LaunchBeam dashboard">
+          <span className="db-brand-mark" aria-hidden="true" />
+          <span>LaunchBeam</span>
+        </Link>
+
+        <p className="db-sidebar-kicker">Workspace</p>
+        <nav className="db-nav" aria-label="Dashboard navigation">
+          <Link className="db-nav-link" href="/dashboard">
+            <LayoutDashboard aria-hidden="true" />
+            Projects
+          </Link>
+          <Link className="db-nav-link" href="/dashboard/projects/new">
+            <Plus aria-hidden="true" />
+            New project
+          </Link>
+          <Link className="db-nav-link" href="/" target="_blank">
+            <ExternalLink aria-hidden="true" />
+            LaunchBeam site
+          </Link>
+        </nav>
+
+        <div className="db-sidebar-spacer" />
+        <div className="db-sidebar-tip">
+          <strong>Free workspace</strong>
+          <span>One active waitlist project included for the MVP.</span>
+        </div>
+
+        <div className="db-account">
+          <span className="db-avatar" aria-hidden="true">
+            {getAccountInitial(email)}
+          </span>
+          <div className="db-account-copy">
+            <strong>{email ?? "Setup mode"}</strong>
+            <span>{email ? "Account owner" : "Configuration needed"}</span>
+          </div>
+          {email ? <LogoutButton /> : null}
+        </div>
+      </aside>
+
+      <header className="db-mobile-header">
+        <Link className="db-brand" href="/dashboard" aria-label="LaunchBeam dashboard">
+          <span className="db-brand-mark" aria-hidden="true" />
+          <span>LaunchBeam</span>
+        </Link>
+        <details className="db-mobile-menu">
+          <summary aria-label="Open dashboard navigation">
+            <Menu aria-hidden="true" />
+          </summary>
+          <div className="db-mobile-menu-panel">
+            <nav className="db-nav" aria-label="Mobile dashboard navigation">
+              <Link className="db-nav-link" href="/dashboard">
+                <LayoutDashboard aria-hidden="true" />
+                Projects
+              </Link>
+              <Link className="db-nav-link" href="/dashboard/projects/new">
+                <Plus aria-hidden="true" />
+                New project
+              </Link>
+              <Link className="db-nav-link" href="/" target="_blank">
+                <ExternalLink aria-hidden="true" />
+                LaunchBeam site
+              </Link>
+            </nav>
+            <div className="db-mobile-account">
+              <span>{email ?? "Setup mode"}</span>
+              {email ? <LogoutButton /> : null}
+            </div>
+          </div>
+        </details>
+      </header>
+    </>
+  );
+}
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const configured = isSupabaseConfigured();
+  let email: string | null = null;
+
+  if (configured) {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      redirect("/login?next=/dashboard");
+    }
+
+    email = user.email ?? null;
+  }
+
+  return (
+    <div className="db-shell">
+      <DashboardNavigation email={email} />
+      <div className="db-main">
+        <div className="db-content">{children}</div>
+      </div>
+    </div>
+  );
+}
