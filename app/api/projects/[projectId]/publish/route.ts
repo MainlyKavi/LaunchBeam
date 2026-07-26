@@ -6,7 +6,9 @@ import {
   readJsonBody,
   requestErrorResponse,
 } from "@/app/api/_shared";
+import { isEmailDeliveryConfigured } from "@/lib/email";
 import { mapProjectRow, type RawProjectRow } from "@/lib/project-records";
+import { isReservedSlug } from "@/lib/reserved-slugs";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   projectContentSchema,
@@ -16,6 +18,7 @@ import {
   templateIdSchema,
 } from "@/lib/validation/project";
 import { getSiteUrl } from "@/lib/site-url";
+import { isTokenSigningConfigured } from "@/lib/tokens";
 import { revalidatePath } from "next/cache";
 
 const MAXIMUM_PUBLISH_BODY_BYTES = 1024;
@@ -89,6 +92,13 @@ export async function POST(
 
     const currentProject = mapProjectRow(currentRow as RawProjectRow);
     if (action.data.publish) {
+      if (isReservedSlug(currentProject.slug)) {
+        return apiError(
+          "invalid_slug",
+          "Choose a non-reserved public URL before publishing.",
+          400,
+        );
+      }
       const configurationIsValid =
         templateIdSchema.safeParse(currentRow.template_id).success &&
         projectContentSchema.safeParse(currentRow.content).success &&
@@ -113,6 +123,23 @@ export async function POST(
         return apiError(
           "project_incomplete",
           `Add the required ${missingFields.join(", ")} before publishing.`,
+          400,
+        );
+      }
+      if (!isTokenSigningConfigured()) {
+        return apiError(
+          "secure_links_unavailable",
+          "Configure EMAIL_TOKEN_SECRET before publishing.",
+          400,
+        );
+      }
+      if (
+        currentProject.settings.requireEmailVerification &&
+        !isEmailDeliveryConfigured()
+      ) {
+        return apiError(
+          "email_verification_unavailable",
+          "Configure transactional email before publishing with email verification.",
           400,
         );
       }

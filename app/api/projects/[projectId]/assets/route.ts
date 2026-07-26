@@ -123,10 +123,18 @@ export async function POST(
       return apiError("project_not_found", "Project not found.", 404);
     }
 
-    const contentLength = Number(request.headers.get("content-length") ?? 0);
+    const contentLengthHeader = request.headers.get("content-length");
+    if (!contentLengthHeader) {
+      return apiError(
+        "content_length_required",
+        "The upload size could not be verified. Choose the image again.",
+        411,
+      );
+    }
+    const contentLength = Number(contentLengthHeader);
     if (
       !Number.isFinite(contentLength) ||
-      contentLength < 0 ||
+      contentLength <= 0 ||
       contentLength > MAXIMUM_MULTIPART_BYTES
     ) {
       return apiError(

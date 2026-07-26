@@ -3,6 +3,16 @@ import { logServerError } from "@/lib/logger";
 
 let resendClient: Resend | null = null;
 
+export function isEmailDeliveryConfigured(): boolean {
+  const tokenSecret = process.env.EMAIL_TOKEN_SECRET?.trim();
+  return Boolean(
+    process.env.RESEND_API_KEY?.trim() &&
+      process.env.RESEND_FROM_EMAIL?.trim() &&
+      tokenSecret &&
+      tokenSecret.length >= 32,
+  );
+}
+
 function getResend() {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) return null;

@@ -1,27 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { preload } from "react-dom";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const TITLE = "LaunchBeam | Build a waitlist and validate demand";
 const DESCRIPTION =
   "Create a polished waitlist, grow it through referrals, and use LaunchBeam's Demand Score to measure early interest before you launch.";
 
-async function getSiteUrl() {
-  const headerList = await headers();
-  const host =
-    headerList.get("x-forwarded-host") ??
-    headerList.get("host") ??
-    "localhost:3000";
-  const protocol =
-    headerList.get("x-forwarded-proto") ??
-    (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? "http" : "https");
-  return new URL(`${protocol}://${host}`);
-}
-
 export async function generateMetadata(): Promise<Metadata> {
-  const metadataBase = await getSiteUrl();
+  const metadataBase = new URL(await getSiteUrl());
   const imageUrl = new URL("/og.png", metadataBase).toString();
 
   return {
@@ -82,7 +70,7 @@ export default async function RootLayout({
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "LaunchBeam",
-    url: siteUrl.toString(),
+    url: siteUrl,
     description: DESCRIPTION,
   };
 

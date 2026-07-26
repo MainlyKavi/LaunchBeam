@@ -7,6 +7,7 @@ import {
   type RawProjectRow,
 } from "@/lib/project-records";
 import { normalizeSlug } from "@/lib/normalize-slug";
+import { isReservedSlug } from "@/lib/reserved-slugs";
 
 const projectSelection =
   "id,owner_id,name,slug,status,template_id,content,theme,settings,published_at,created_at,updated_at";
@@ -15,7 +16,9 @@ export async function getPublishedProject(
   rawSlug: string,
 ): Promise<ProjectView | null> {
   const slug = normalizeSlug(rawSlug);
-  if (!slug || slug !== rawSlug.toLowerCase()) return null;
+  if (!slug || slug !== rawSlug.toLowerCase() || isReservedSlug(slug)) {
+    return null;
+  }
 
   try {
     const supabase = getSupabaseAdmin();

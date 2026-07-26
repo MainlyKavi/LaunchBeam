@@ -326,3 +326,114 @@ test("position allocation is serialized per project and backed by uniqueness", a
     /count\(\*\)\s*\+\s*1/i,
   );
 });
+
+test("production hardening upgrades existing databases without prototype state", async () => {
+  const [
+    migration,
+    analytics,
+    subscribeRoute,
+    exportRoute,
+    projectRoute,
+    rateLimit,
+    turnstile,
+    unsubscribeRoute,
+  ] =
+    await Promise.all([
+      readFile(
+        new URL(
+          "../supabase/migrations/0002_production_hardening.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(new URL("../lib/analytics-dashboard.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../app/api/public/[slug]/subscribe/route.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../app/api/projects/[projectId]/export/route.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../app/api/projects/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/rate-limit.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/turnstile.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL(
+          "../app/api/public/[slug]/unsubscribe/route.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ]);
+
+  assert.match(migration, /drop table if exists public\.beta_signups/);
+  assert.match(
+    migration,
+    /drop index if exists public\.projects_one_active_per_owner_idx/,
+  );
+  assert.match(migration, /projects_slug_not_reserved/);
+  assert.match(migration, /get_project_analytics_totals/);
+  assert.match(
+    migration,
+    /v_existing\.status = 'pending'[\s\S]*?previous_confirmation_token_hash = s\.confirmation_token_hash,[\s\S]*?confirmation_token_hash = p_confirmation_token_hash/,
+  );
+  assert.match(
+    migration,
+    /s\.confirmation_token_hash = p_confirmation_token_hash[\s\S]*?or s\.previous_confirmation_token_hash = p_confirmation_token_hash/,
+  );
+  assert.match(
+    migration,
+    /insert into public\.events[\s\S]*?'signup'[\s\S]*?if v_referral_awarded then[\s\S]*?'referral_signup'/,
+  );
+  assert.match(
+    migration,
+    /create policy "owners delete project assets"[\s\S]*?p\.owner_id = \(select auth\.uid\(\)\)/,
+  );
+
+  assert.match(analytics, /get_project_analytics_totals/);
+  assert.match(subscribeRoute, /:ip:/);
+  assert.match(subscribeRoute, /:email:/);
+  const turnstileInvocation = subscribeRoute.indexOf(
+    "const turnstile = await verifyTurnstileToken",
+  );
+  assert.ok(
+    subscribeRoute.indexOf(":ip:") <
+      turnstileInvocation &&
+      turnstileInvocation <
+        subscribeRoute.indexOf(":email:"),
+    "network limiting must precede Turnstile, and email limiting must follow it",
+  );
+  assert.match(rateLimit, /timeout:\s*1_500/);
+  assert.match(rateLimit, /result\.reason === "timeout"/);
+  assert.match(turnstile, /TURNSTILE_TIMEOUT_MS = 5_000/);
+  assert.match(turnstile, /signal:\s*controller\.signal/);
+  assert.doesNotMatch(projectRoute, /project_limit_reached/);
+  assert.match(exportRoute, /\.order\("created_at"[\s\S]*?\.order\("id"/);
+  const unsubscribePost = unsubscribeRoute.indexOf("export async function POST");
+  assert.ok(unsubscribePost > 0);
+  assert.doesNotMatch(
+    unsubscribeRoute.slice(0, unsubscribePost),
+    /\.update\(\{\s*status:\s*"unsubscribed"/,
+  );
+  assert.match(
+    unsubscribeRoute.slice(unsubscribePost),
+    /\.update\(\{\s*status:\s*"unsubscribed"/,
+  );
+
+  for (const column of [
+    "email",
+    "name",
+    "status",
+    "position",
+    "referral_count",
+    "referred_by",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "created_at",
+  ]) {
+    assert.match(exportRoute, new RegExp(`"${column}"`));
+  }
+  assert.doesNotMatch(exportRoute, /"referral_url"/);
+});

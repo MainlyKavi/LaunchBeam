@@ -14,10 +14,8 @@ import {
 } from "@/app/api/public/_shared";
 import { logServerError } from "@/lib/logger";
 import { normalizeSlug } from "@/lib/normalize-slug";
-import {
-  checkRateLimit,
-  hashRateLimitIdentifier,
-} from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isReservedSlug } from "@/lib/reserved-slugs";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { signToken } from "@/lib/tokens";
 import { publicEventSchema } from "@/lib/validation/analytics";
@@ -79,7 +77,11 @@ export async function POST(
 
     const { slug: rawSlug } = await context.params;
     const slug = normalizeSlug(rawSlug);
-    if (!slug || slug !== rawSlug.toLowerCase()) {
+    if (
+      !slug ||
+      slug !== rawSlug.toLowerCase() ||
+      isReservedSlug(slug)
+    ) {
       return apiError("project_not_found", "Waitlist not found.", 404);
     }
 
@@ -117,14 +119,11 @@ export async function POST(
     projectId = project.id;
 
     const remoteIp = clientIp(request);
-    const requestIdentifier = hashRateLimitIdentifier(
-      remoteIp ?? result.data.sessionId,
-    );
     const rateLimit = await checkRateLimit(
       "events",
-      `${project.id}:${requestIdentifier}`,
+      `${project.id}:${remoteIp ?? result.data.sessionId}`,
     );
-    if (!rateLimit.configured && !rateLimit.success) {
+    if (!rateLimit.available) {
       return apiError(
         "rate_limit_unavailable",
         "Analytics are temporarily unavailable.",

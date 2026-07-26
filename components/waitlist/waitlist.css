@@ -205,12 +205,24 @@
 
 .waitlist-privacy-copy,
 .waitlist-count,
-.waitlist-protection-note {
+.waitlist-protection-note,
+.waitlist-preview-note {
   margin: 0;
   color: var(--waitlist-muted);
   font-size: 0.72rem;
   line-height: 1.45;
   text-align: center;
+}
+
+.waitlist-preview-note {
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--waitlist-muted) 32%, transparent);
+  border-radius: max(8px, calc(var(--waitlist-radius) * 0.5));
+}
+
+.waitlist-page[data-mode="editor"] .waitlist-submit:disabled,
+.waitlist-page[data-mode="preview"] .waitlist-submit:disabled {
+  cursor: not-allowed;
 }
 
 .waitlist-privacy-copy a {
@@ -470,6 +482,7 @@
 
 .template-minimal-beam .public-signup-form label > span,
 .template-minimal-beam .waitlist-protection-note,
+.template-minimal-beam .waitlist-preview-note,
 .template-minimal-beam .turnstile-field,
 .template-minimal-beam .waitlist-privacy-copy,
 .template-minimal-beam .waitlist-count,
@@ -688,7 +701,7 @@
   color: var(--waitlist-fg);
   background:
     radial-gradient(circle at 50% -5%, color-mix(in srgb, var(--waitlist-accent) 18%, transparent), transparent 40%),
-    #07080b;
+    var(--waitlist-bg);
 }
 
 .darkrai-shell {
@@ -751,6 +764,12 @@
   width: 38vw;
   height: 38vw;
   box-shadow: 0 0 90px color-mix(in srgb, var(--waitlist-accent) 14%, transparent);
+}
+
+[data-page-animation="none"] .kimchi-glow,
+[data-page-animation="none"] .darkrai-orbit {
+  animation: none !important;
+  transform: none !important;
 }
 
 [data-animation="subtle"] > * {

@@ -9,6 +9,7 @@ import type {
   ProjectTheme,
   TemplateId,
 } from "@/lib/types";
+import { TEMPLATE_THEME_PRESETS } from "@/lib/types";
 import { TurnstileWidget } from "./turnstile-widget";
 import "./waitlist.css";
 
@@ -25,6 +26,7 @@ export type WaitlistProject = {
 
 type SignupResult = {
   alreadySubscribed: boolean;
+  emailSent?: boolean;
   position: number;
   referralCount: number;
   referralUrl: string;
@@ -58,13 +60,54 @@ function safeTemplateId(templateId: string): TemplateId {
     : "kimchi";
 }
 
+function themesMatch(left: ProjectTheme, right: ProjectTheme) {
+  return (
+    left.background === right.background &&
+    left.foreground === right.foreground &&
+    left.muted === right.muted &&
+    left.accent === right.accent &&
+    left.font === right.font &&
+    left.radius === right.radius &&
+    left.alignment === right.alignment &&
+    left.buttonStyle === right.buttonStyle &&
+    left.animation === right.animation
+  );
+}
+
 function getSessionId() {
-  const key = "launchbeam-session";
-  const existing = window.sessionStorage.getItem(key);
-  if (existing && /^[a-zA-Z0-9_-]{16,80}$/.test(existing)) return existing;
+  const key = "launchbeam-visitor";
+  try {
+    const existing = window.localStorage.getItem(key);
+    if (existing && /^[a-zA-Z0-9_-]{16,80}$/.test(existing)) return existing;
+  } catch {
+    // Some privacy modes disable persistent browser storage.
+  }
+  try {
+    const existing = window.sessionStorage.getItem(key);
+    if (existing && /^[a-zA-Z0-9_-]{16,80}$/.test(existing)) return existing;
+  } catch {
+    // Continue with a fresh identifier when session storage is unavailable.
+  }
   const value = crypto.randomUUID().replace(/-/g, "");
-  window.sessionStorage.setItem(key, value);
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Session storage remains as a best-effort fallback.
+  }
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // The in-memory value still identifies this request.
+  }
   return value;
+}
+
+function referralCodeFromUrl(value: string) {
+  try {
+    return new URL(value).searchParams.get("ref") ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function readCampaignParameters() {
@@ -88,6 +131,18 @@ export function TemplateRenderer({
 }) {
   const templateId = safeTemplateId(project.templateId);
   const Template = templateComponents[templateId];
+  const renderedProject = useMemo<WaitlistProject>(() => {
+    const legacyDarkraiTheme =
+      templateId === "darkrai" &&
+      themesMatch(project.theme, TEMPLATE_THEME_PRESETS.kimchi);
+    return {
+      ...project,
+      templateId,
+      theme: legacyDarkraiTheme
+        ? { ...TEMPLATE_THEME_PRESETS.darkrai }
+        : project.theme,
+    };
+  }, [project, templateId]);
   const [result, setResult] = useState<SignupResult | null>(null);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -125,12 +180,13 @@ export function TemplateRenderer({
     (
       eventType: "page_view" | "referral_visit" | "share_click",
       metadata: Record<string, string> = {},
+      referralCode = campaignParameters.referralCode,
     ) => {
       if (mode !== "public") return;
       const payload = JSON.stringify({
         eventType,
         sessionId: getSessionId(),
-        referralCode: campaignParameters.referralCode,
+        referralCode,
         metadata,
       });
       const endpoint = `/api/public/${encodeURIComponent(project.slug)}/events`;
@@ -154,8 +210,19 @@ export function TemplateRenderer({
   useEffect(() => {
     if (mode !== "public") return;
     const viewKey = `launchbeam-view:${project.id}`;
-    if (window.sessionStorage.getItem(viewKey)) return;
-    window.sessionStorage.setItem(viewKey, "1");
+    const now = Date.now();
+    let previousView = 0;
+    try {
+      previousView = Number(window.sessionStorage.getItem(viewKey) ?? 0);
+    } catch {
+      // Tracking can proceed even when storage is restricted.
+    }
+    if (now - previousView < 1_500) return;
+    try {
+      window.sessionStorage.setItem(viewKey, String(now));
+    } catch {
+      // The effect still runs once per mount when storage is unavailable.
+    }
     trackEvent("page_view", {
       referrer: document.referrer.slice(0, 500),
       utmSource: campaignParameters.utmSource ?? "",
@@ -244,12 +311,20 @@ export function TemplateRenderer({
     await navigator.clipboard.writeText(result.referralUrl);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
-    trackEvent("share_click", { channel: "copy" });
+    trackEvent(
+      "share_click",
+      { channel: "copy" },
+      referralCodeFromUrl(result.referralUrl),
+    );
   }
 
   function share(channel: "x" | "whatsapp") {
     if (!result?.referralUrl) return;
-    trackEvent("share_click", { channel });
+    trackEvent(
+      "share_click",
+      { channel },
+      referralCodeFromUrl(result.referralUrl),
+    );
     const copy = `I joined the ${project.name} waitlist. Join me: ${result.referralUrl}`;
     const url =
       channel === "x"
@@ -259,22 +334,22 @@ export function TemplateRenderer({
   }
 
   const style = {
-    "--waitlist-bg": project.theme.background,
-    "--waitlist-fg": project.theme.foreground,
-    "--waitlist-muted": project.theme.muted,
-    "--waitlist-accent": project.theme.accent,
-    "--waitlist-radius": `${project.theme.radius}px`,
-    "--waitlist-align": project.theme.alignment,
+    "--waitlist-bg": renderedProject.theme.background,
+    "--waitlist-fg": renderedProject.theme.foreground,
+    "--waitlist-muted": renderedProject.theme.muted,
+    "--waitlist-accent": renderedProject.theme.accent,
+    "--waitlist-radius": `${renderedProject.theme.radius}px`,
+    "--waitlist-align": renderedProject.theme.alignment,
   } as CSSProperties;
 
   const frameProps: TemplateFrameProps = {
-    project,
+    project: renderedProject,
     mode,
     style,
     signup:
       result && state === "success" ? (
         <SignupSuccess
-          project={project}
+          project={renderedProject}
           result={result}
           copied={copied}
           onCopy={copyReferralLink}
@@ -282,12 +357,13 @@ export function TemplateRenderer({
         />
       ) : (
         <SignupForm
-          project={project}
+          project={renderedProject}
           email={email}
           name={name}
           customAnswer={customAnswer}
           state={state}
           message={message}
+          mode={mode}
           siteKey={turnstileSiteKey}
           turnstileResetKey={turnstileResetKey}
           onEmail={setEmail}
@@ -413,6 +489,7 @@ function MinimalBeamTemplate(props: TemplateFrameProps) {
       style={props.style}
       data-font={props.project.theme.font}
       data-mode={props.mode}
+      data-page-animation={props.project.theme.animation}
     >
       <div className="minimal-shell">
         <Brand project={props.project} />
@@ -436,6 +513,7 @@ function KimchiTemplate(props: TemplateFrameProps) {
       style={props.style}
       data-font={props.project.theme.font}
       data-mode={props.mode}
+      data-page-animation={props.project.theme.animation}
     >
       <div className="kimchi-glow glow-one" aria-hidden="true" />
       <div className="kimchi-glow glow-two" aria-hidden="true" />
@@ -461,6 +539,7 @@ function KevinoraTemplate(props: TemplateFrameProps) {
       style={props.style}
       data-font={props.project.theme.font}
       data-mode={props.mode}
+      data-page-animation={props.project.theme.animation}
     >
       <div className="kevinora-shell">
         <Brand project={props.project} />
@@ -485,6 +564,7 @@ function SpotbeamTemplate(props: TemplateFrameProps) {
       style={props.style}
       data-font={props.project.theme.font}
       data-mode={props.mode}
+      data-page-animation={props.project.theme.animation}
     >
       <div className="spotbeam-shell">
         <Brand project={props.project} />
@@ -508,6 +588,7 @@ function DarkraiTemplate(props: TemplateFrameProps) {
       style={props.style}
       data-font={props.project.theme.font}
       data-mode={props.mode}
+      data-page-animation={props.project.theme.animation}
     >
       <div className="darkrai-orbit orbit-one" aria-hidden="true" />
       <div className="darkrai-orbit orbit-two" aria-hidden="true" />
@@ -530,6 +611,7 @@ function SignupForm({
   customAnswer,
   state,
   message,
+  mode,
   siteKey,
   turnstileResetKey,
   onEmail,
@@ -544,6 +626,7 @@ function SignupForm({
   customAnswer: string;
   state: "idle" | "submitting" | "success" | "error";
   message: string;
+  mode: RendererMode;
   siteKey: string | null;
   turnstileResetKey: number;
   onEmail: (value: string) => void;
@@ -597,18 +680,28 @@ function SignupForm({
           />
         </label>
       ) : null}
-      <TurnstileWidget
-        siteKey={siteKey}
-        theme={isDark ? "dark" : "light"}
-        resetKey={turnstileResetKey}
-        onToken={onToken}
-      />
+      {mode === "public" ? (
+        <TurnstileWidget
+          siteKey={siteKey}
+          theme={isDark ? "dark" : "light"}
+          resetKey={turnstileResetKey}
+          onToken={onToken}
+        />
+      ) : (
+        <p className="waitlist-preview-note" role="note">
+          Signup activates on the published waitlist.
+        </p>
+      )}
       <button
         className={`waitlist-submit button-${project.theme.buttonStyle}`}
         type="submit"
-        disabled={state === "submitting"}
+        disabled={state === "submitting" || mode !== "public"}
       >
-        {state === "submitting" ? "Joining..." : project.content.buttonText}
+        {state === "submitting"
+          ? "Joining..."
+          : mode === "public"
+            ? project.content.buttonText
+            : `${project.content.buttonText} (preview)`}
       </button>
       {project.settings.privacyUrl ? (
         <p className="waitlist-privacy-copy">
@@ -673,7 +766,11 @@ function SignupSuccess({
         You&apos;re #{result.position} on the waitlist.
       </strong>
       {result.status === "pending" ? (
-        <p>Check your inbox to confirm your place before referral credit begins.</p>
+        <p>
+          {result.emailSent === false
+            ? "Your place is pending, but the confirmation email could not be sent. Contact the project owner before sharing."
+            : "Check your inbox to confirm your place before referral credit begins."}
+        </p>
       ) : null}
       {project.settings.referralsEnabled ? (
         <>

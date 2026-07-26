@@ -5,6 +5,7 @@ import "../legal.css";
 export const metadata: Metadata = {
   title: "Terms | LaunchBeam",
   description: "Starter terms for the LaunchBeam waitlist platform.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {
@@ -23,7 +24,7 @@ export default function TermsPage() {
 
       <article className="legal-document">
         <header>
-          <p>Starter terms · Last updated July 25, 2026</p>
+          <p>Starter terms · Last updated July 26, 2026</p>
           <h1>Terms</h1>
           <div className="legal-notice">
             These starter terms require professional review and operator-specific
@@ -35,7 +36,7 @@ export default function TermsPage() {
         <section>
           <h2>1. Product use</h2>
           <p>
-            LaunchBeam is a beta tool for creating and publishing waitlists,
+            LaunchBeam is a tool for creating and publishing waitlists,
             collecting subscriber details, attributing referrals, and reviewing
             early demand signals. You may use the service only in accordance with
             applicable law and these terms.
@@ -77,9 +78,9 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2>5. Beta availability</h2>
+          <h2>5. Service availability</h2>
           <p>
-            The beta may change, pause, lose data, or contain defects. Features,
+            The service may change, pause, lose data, or contain defects. Features,
             limits, templates, integrations, and URLs may change. Custom domains,
             billing, team collaboration, and other roadmap features are not
             promised by this codebase. Keep independent copies of important
@@ -105,14 +106,14 @@ export default function TermsPage() {
             respond to legal obligations, or address material violations.
             Production terms should add notice, appeal, export, deletion, and
             retention procedures. You may unpublish projects and stop using the
-            beta at any time.
+            service at any time.
           </p>
         </section>
 
         <section>
           <h2>8. Disclaimers and liability</h2>
           <p>
-            To the extent permitted by law, the beta is provided as available
+            To the extent permitted by law, the service is provided as available
             without warranties of uninterrupted operation, fitness for a
             particular purpose, or guaranteed launch outcomes. Demand Score is a
             transparent directional metric, not financial, investment, or market
@@ -134,7 +135,7 @@ export default function TermsPage() {
       </article>
 
       <footer className="legal-footer">
-        <span>LaunchBeam beta</span>
+        <span>LaunchBeam</span>
         <div>
           <Link href="/">Home</Link>
           <Link href="/privacy">Privacy</Link>

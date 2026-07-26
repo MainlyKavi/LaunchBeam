@@ -133,17 +133,66 @@ export const DEFAULT_PROJECT_CONTENT: ProjectContent = {
   socialLinks: [],
 };
 
-export const DEFAULT_PROJECT_THEME: ProjectTheme = {
-  background: "#e9e5ff",
-  foreground: "#18151f",
-  muted: "#6f6879",
-  accent: "#5b4de4",
-  font: "argentum",
-  radius: 20,
-  alignment: "center",
-  buttonStyle: "solid",
-  animation: "subtle",
-};
+export const TEMPLATE_THEME_PRESETS = {
+  "minimal-beam": {
+    background: "#f7f7f4",
+    foreground: "#111111",
+    muted: "#666661",
+    accent: "#111111",
+    font: "argentum",
+    radius: 12,
+    alignment: "center",
+    buttonStyle: "solid",
+    animation: "subtle",
+  },
+  kimchi: {
+    background: "#e9e5ff",
+    foreground: "#18151f",
+    muted: "#6f6879",
+    accent: "#5b4de4",
+    font: "argentum",
+    radius: 20,
+    alignment: "center",
+    buttonStyle: "solid",
+    animation: "subtle",
+  },
+  kevinora: {
+    background: "#f2e7d4",
+    foreground: "#34261e",
+    muted: "#756253",
+    accent: "#9a4f32",
+    font: "editorial",
+    radius: 18,
+    alignment: "left",
+    buttonStyle: "soft",
+    animation: "subtle",
+  },
+  spotbeam: {
+    background: "#f3f5f8",
+    foreground: "#151923",
+    muted: "#667085",
+    accent: "#3157d5",
+    font: "argentum",
+    radius: 16,
+    alignment: "left",
+    buttonStyle: "solid",
+    animation: "subtle",
+  },
+  darkrai: {
+    background: "#090b11",
+    foreground: "#f7f8fb",
+    muted: "#aeb6c7",
+    accent: "#9caeff",
+    font: "argentum",
+    radius: 22,
+    alignment: "center",
+    buttonStyle: "glass",
+    animation: "subtle",
+  },
+} satisfies Record<TemplateId, ProjectTheme>;
+
+export const DEFAULT_PROJECT_THEME: ProjectTheme =
+  TEMPLATE_THEME_PRESETS.kimchi;
 
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   showSignupCount: false,
@@ -159,14 +208,3 @@ export const DEFAULT_PROJECT_CONFIG = {
   slug: "kimchi",
   templateId: "kimchi" as const,
 };
-
-export const PLAN_LIMITS = {
-  free: {
-    activeProjects: 1,
-    subscribersPerProject: 100,
-  },
-  pro: {
-    activeProjects: Number.MAX_SAFE_INTEGER,
-    subscribersPerProject: Number.MAX_SAFE_INTEGER,
-  },
-} as const;

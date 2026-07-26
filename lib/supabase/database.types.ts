@@ -80,6 +80,7 @@ export type Database = {
           utm_medium: string | null;
           utm_campaign: string | null;
           confirmation_token_hash: string | null;
+          previous_confirmation_token_hash: string | null;
           confirmed_at: string | null;
           created_at: string;
           updated_at: string;
@@ -99,6 +100,7 @@ export type Database = {
           utm_medium?: string | null;
           utm_campaign?: string | null;
           confirmation_token_hash?: string | null;
+          previous_confirmation_token_hash?: string | null;
           confirmed_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -118,6 +120,7 @@ export type Database = {
           utm_medium?: string | null;
           utm_campaign?: string | null;
           confirmation_token_hash?: string | null;
+          previous_confirmation_token_hash?: string | null;
           confirmed_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -160,33 +163,6 @@ export type Database = {
           device_type?: string | null;
           metadata?: Json;
           created_at?: string;
-        };
-        Relationships: [];
-      };
-      beta_signups: {
-        Row: {
-          id: string;
-          email: string;
-          plan: "free" | "pro";
-          consent: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          email: string;
-          plan: "free" | "pro";
-          consent: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          email?: string;
-          plan?: "free" | "pro";
-          consent?: boolean;
-          created_at?: string;
-          updated_at?: string;
         };
         Relationships: [];
       };
@@ -234,6 +210,19 @@ export type Database = {
           p_project_id: string;
         };
         Returns: number;
+      };
+      get_project_analytics_totals: {
+        Args: {
+          p_project_id: string;
+          p_start?: string | null;
+        };
+        Returns: Array<{
+          page_views: number;
+          unique_visitors: number;
+          subscribers: number;
+          confirmed_subscribers: number;
+          referral_signups: number;
+        }>;
       };
     };
     Enums: Record<never, never>;

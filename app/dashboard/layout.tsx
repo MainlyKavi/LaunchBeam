@@ -48,8 +48,8 @@ function DashboardNavigation({ email }: { email: string | null }) {
 
         <div className="db-sidebar-spacer" />
         <div className="db-sidebar-tip">
-          <strong>Free workspace</strong>
-          <span>One active waitlist project included for the MVP.</span>
+          <strong>Launch workspace</strong>
+          <span>Create, publish, and compare every waitlist in one place.</span>
         </div>
 
         <div className="db-account">
@@ -104,25 +104,24 @@ export default async function DashboardLayout({
 }: {
   children: ReactNode;
 }) {
-  const configured = isSupabaseConfigured();
-  let email: string | null = null;
+  if (!isSupabaseConfigured()) {
+    redirect(
+      "/login?next=/dashboard&error=Account%20access%20is%20temporarily%20unavailable.",
+    );
+  }
 
-  if (configured) {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!user) {
-      redirect("/login?next=/dashboard");
-    }
-
-    email = user.email ?? null;
+  if (!user) {
+    redirect("/login?next=/dashboard");
   }
 
   return (
     <div className="db-shell">
-      <DashboardNavigation email={email} />
+      <DashboardNavigation email={user.email ?? null} />
       <div className="db-main">
         <div className="db-content">{children}</div>
       </div>

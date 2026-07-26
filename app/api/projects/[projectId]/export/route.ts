@@ -1,6 +1,5 @@
 import { apiError, isUuid } from "@/app/api/_shared";
 import { rowsToCsv } from "@/lib/csv";
-import { getSiteUrl } from "@/lib/site-url";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const EXPORT_PAGE_SIZE = 1_000;
@@ -12,7 +11,7 @@ const CSV_HEADERS = [
   "status",
   "position",
   "referral_count",
-  "referral_url",
+  "referred_by",
   "utm_source",
   "utm_medium",
   "utm_campaign",
@@ -29,7 +28,7 @@ type SubscriberExportRow = {
   status: string;
   position: number;
   referral_count: number;
-  referral_code: string;
+  referred_by: string | null;
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
@@ -82,10 +81,11 @@ export async function GET(
       const { data, error } = await supabase
         .from("subscribers")
         .select(
-          "email,name,status,position,referral_count,referral_code,utm_source,utm_medium,utm_campaign,created_at",
+          "email,name,status,position,referral_count,referred_by,utm_source,utm_medium,utm_campaign,created_at",
         )
         .eq("project_id", projectId)
         .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(offset, offset + EXPORT_PAGE_SIZE - 1);
 
       if (error) {
@@ -108,7 +108,6 @@ export async function GET(
       }
     }
 
-    const siteUrl = await getSiteUrl();
     const body = rowsToCsv(
       CSV_HEADERS,
       rows.map((subscriber) => [
@@ -117,7 +116,7 @@ export async function GET(
           subscriber.status,
           subscriber.position,
           subscriber.referral_count,
-          `${siteUrl}/${project.slug}?ref=${encodeURIComponent(subscriber.referral_code)}`,
+          subscriber.referred_by,
           subscriber.utm_source,
           subscriber.utm_medium,
           subscriber.utm_campaign,

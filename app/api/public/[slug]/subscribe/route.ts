@@ -11,18 +11,20 @@ import {
   referralCookieName,
   retryAfterHeaders,
 } from "@/app/api/public/_shared";
-import { sendWelcomeEmail } from "@/lib/email";
+import {
+  isEmailDeliveryConfigured,
+  sendWelcomeEmail,
+} from "@/lib/email";
 import { logServerError } from "@/lib/logger";
 import { normalizeSlug } from "@/lib/normalize-slug";
-import {
-  checkRateLimit,
-  hashRateLimitIdentifier,
-} from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isReservedSlug } from "@/lib/reserved-slugs";
 import { getSiteUrl } from "@/lib/site-url";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import {
   generateOpaqueToken,
   hashToken,
+  isTokenSigningConfigured,
   signToken,
   verifySignedToken,
 } from "@/lib/tokens";
@@ -109,7 +111,11 @@ export async function POST(
 
     const { slug: rawSlug } = await context.params;
     const slug = normalizeSlug(rawSlug);
-    if (!slug || slug !== rawSlug.toLowerCase()) {
+    if (
+      !slug ||
+      slug !== rawSlug.toLowerCase() ||
+      isReservedSlug(slug)
+    ) {
       return apiError("project_not_found", "Waitlist not found.", 404);
     }
 
@@ -169,27 +175,42 @@ export async function POST(
         400,
       );
     }
+    if (
+      settings.requireEmailVerification &&
+      !isEmailDeliveryConfigured()
+    ) {
+      return apiError(
+        "email_verification_unavailable",
+        "Email verification is temporarily unavailable for this waitlist.",
+        503,
+      );
+    }
+    if (!isTokenSigningConfigured()) {
+      return apiError(
+        "secure_links_unavailable",
+        "This waitlist is temporarily unavailable.",
+        503,
+      );
+    }
 
     const remoteIp = clientIp(request);
-    const emailHash = hashRateLimitIdentifier(result.data.email);
-    const requestHash = hashRateLimitIdentifier(remoteIp ?? "unknown");
-    const rateLimit = await checkRateLimit(
+    const ipRateLimit = await checkRateLimit(
       "signup",
-      `${publishedProject.id}:${emailHash}:${requestHash}`,
+      `${publishedProject.id}:ip:${remoteIp ?? result.data.sessionId ?? "unknown"}`,
     );
-    if (!rateLimit.configured && !rateLimit.success) {
+    if (!ipRateLimit.available) {
       return apiError(
         "rate_limit_unavailable",
         "Signups are temporarily unavailable.",
         503,
       );
     }
-    if (!rateLimit.success) {
+    if (!ipRateLimit.success) {
       return apiError(
         "rate_limited",
         "Too many signup attempts. Please wait and try again.",
         429,
-        retryAfterHeaders(rateLimit.reset),
+        retryAfterHeaders(ipRateLimit.reset),
       );
     }
 
@@ -203,6 +224,26 @@ export async function POST(
         turnstile.error ??
           "The spam check expired or was invalid. Please try again.",
         400,
+      );
+    }
+
+    const emailRateLimit = await checkRateLimit(
+      "signup",
+      `${publishedProject.id}:email:${result.data.email}`,
+    );
+    if (!emailRateLimit.available) {
+      return apiError(
+        "rate_limit_unavailable",
+        "Signups are temporarily unavailable.",
+        503,
+      );
+    }
+    if (!emailRateLimit.success) {
+      return apiError(
+        "rate_limited",
+        "Too many signup attempts. Please wait and try again.",
+        429,
+        retryAfterHeaders(emailRateLimit.reset),
       );
     }
 

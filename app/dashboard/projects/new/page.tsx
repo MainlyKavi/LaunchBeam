@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowLeft, LockKeyhole, Sparkles, TriangleAlert, Wrench } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSiteUrl } from "@/lib/site-url";
@@ -13,72 +13,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-function ProjectLimitState({ projectName }: { projectName: string }) {
-  return (
-    <section className="db-state-card" aria-labelledby="project-limit-title">
-      <span className="db-state-icon" aria-hidden="true">
-        <LockKeyhole />
-      </span>
-      <h2 id="project-limit-title">Your active project is ready</h2>
-      <p>
-        The initial LaunchBeam workspace supports one active project. Continue
-        building {projectName}, or archive it before starting another.
-      </p>
-      <Link className="db-primary-button" href="/dashboard">
-        Open your project
-      </Link>
-    </section>
-  );
-}
-
-function SetupState() {
-  return (
-    <section className="db-state-card" aria-labelledby="new-setup-title">
-      <span className="db-state-icon" aria-hidden="true">
-        <Wrench />
-      </span>
-      <h2 id="new-setup-title">Connect Supabase first</h2>
-      <p>
-        Project creation needs the public Supabase URL and anonymous key for
-        secure account access.
-      </p>
-      <Link className="db-secondary-button" href="/dashboard">
-        View setup details
-      </Link>
-    </section>
-  );
-}
-
-function LoadErrorState() {
-  return (
-    <section className="db-state-card" aria-labelledby="new-error-title">
-      <span className="db-state-icon" aria-hidden="true">
-        <TriangleAlert />
-      </span>
-      <h2 id="new-error-title">Workspace status unavailable</h2>
-      <p>
-        LaunchBeam could not confirm whether your workspace can create another
-        project. Try again before continuing.
-      </p>
-      <Link className="db-primary-button" href="/dashboard/projects/new">
-        Try again
-      </Link>
-    </section>
-  );
-}
-
 export default async function NewProjectPage() {
   if (!isSupabaseConfigured()) {
-    return (
-      <main>
-        <div className="db-page-head">
-          <div className="db-page-head-copy">
-            <span className="db-eyebrow">New project</span>
-            <h1>Create your waitlist</h1>
-          </div>
-        </div>
-        <SetupState />
-      </main>
+    redirect(
+      "/login?next=/dashboard/projects/new&error=Account%20access%20is%20temporarily%20unavailable.",
     );
   }
 
@@ -89,42 +27,6 @@ export default async function NewProjectPage() {
 
   if (!user) {
     redirect("/login?next=/dashboard/projects/new");
-  }
-
-  const { data: activeProjects, error } = await supabase
-    .from("projects")
-    .select("id,name")
-    .eq("owner_id", user.id)
-    .neq("status", "archived")
-    .limit(1);
-
-  if (error) {
-    return (
-      <main>
-        <div className="db-page-head">
-          <div className="db-page-head-copy">
-            <span className="db-eyebrow">New project</span>
-            <h1>Create your waitlist</h1>
-          </div>
-        </div>
-        <LoadErrorState />
-      </main>
-    );
-  }
-
-  const existingProject = activeProjects?.[0];
-  if (existingProject) {
-    return (
-      <main>
-        <div className="db-page-head">
-          <div className="db-page-head-copy">
-            <span className="db-eyebrow">Workspace limit</span>
-            <h1>One project at a time</h1>
-          </div>
-        </div>
-        <ProjectLimitState projectName={existingProject.name} />
-      </main>
-    );
   }
 
   const siteUrl = await getSiteUrl();

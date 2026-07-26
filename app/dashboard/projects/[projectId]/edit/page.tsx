@@ -26,6 +26,10 @@ export default async function EditProjectPage({
       initialProject={project}
       initialTab={initialTab}
       siteUrl={await getSiteUrl()}
+      emailDeliveryAvailable={Boolean(
+        process.env.RESEND_API_KEY?.trim() &&
+          process.env.RESEND_FROM_EMAIL?.trim(),
+      )}
     />
   );
 }

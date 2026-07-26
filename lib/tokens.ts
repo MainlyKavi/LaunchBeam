@@ -18,9 +18,14 @@ export type SignedTokenPayload = {
   expiresAt: number;
 };
 
+export function isTokenSigningConfigured(): boolean {
+  const secret = process.env.EMAIL_TOKEN_SECRET?.trim();
+  return Boolean(secret && secret.length >= 32);
+}
+
 function tokenSecret() {
   const secret = process.env.EMAIL_TOKEN_SECRET?.trim();
-  if (!secret || secret.length < 32) {
+  if (!isTokenSigningConfigured() || !secret) {
     throw new Error(
       "EMAIL_TOKEN_SECRET must be configured with at least 32 characters.",
     );

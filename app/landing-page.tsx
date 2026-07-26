@@ -6,7 +6,7 @@ import type {
   ReactNode,
   RefObject,
 } from "react";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -25,17 +25,16 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
+import type { TemplateId } from "@/lib/types";
 
-type PlanIntent = "free" | "pro";
 type StudioTab = "page" | "design" | "analytics";
 type PreviewMode = "desktop" | "mobile";
-type TemplateId = "focus" | "editorial" | "product";
 type ButtonStyle = "solid" | "outline" | "soft";
 type AnalyticsTab = "overview" | "sources" | "referrals";
 
 const campaign = {
   startup: "Kimchi",
-  founder: "Maya Chen",
+  slug: "kimchi",
   logo: "K",
   headline: "Research that finds the signal in customer conversations.",
   description:
@@ -71,13 +70,27 @@ const templates: Array<{
   label: string;
   description: string;
 }> = [
-  { id: "focus", label: "Focus", description: "Centered and concise" },
-  { id: "editorial", label: "Editorial", description: "Quiet, story-led layout" },
-  { id: "product", label: "Product", description: "Visual product-first split" },
+  {
+    id: "minimal-beam",
+    label: "Minimal Beam",
+    description: "Quiet and precise",
+  },
+  { id: "kimchi", label: "Kimchi", description: "Soft liquid-glass depth" },
+  {
+    id: "kevinora",
+    label: "Kevinora",
+    description: "Warm editorial detail",
+  },
+  {
+    id: "spotbeam",
+    label: "Spotbeam",
+    description: "Product-first split",
+  },
+  { id: "darkrai", label: "Darkrai", description: "Cinematic contrast" },
 ];
 
 const navLinks = [
-  { label: "Product", href: "#product" },
+  { label: "Product", href: "#demo" },
   { label: "Analytics", href: "#analytics" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
@@ -116,42 +129,27 @@ const featureItems = [
   },
   {
     icon: LayoutTemplate,
-    title: "Custom domains",
-    copy: "Publish the finished waitlist on your own domain with Pro.",
-    status: "Pro roadmap",
+    title: "Five responsive templates",
+    copy: "Start with Kimchi, Minimal Beam, Kevinora, Spotbeam, or Darkrai and keep your campaign content when you switch.",
+    status: "Available",
   },
 ] as const;
 
 const plans = [
   {
-    id: "free" as const,
+    id: "free",
     name: "Free",
     price: "Free",
-    description: "For testing an idea.",
-    cta: "Create your waitlist",
-    recommended: false,
-    features: [
-      "1 project",
-      "Up to 100 subscribers",
-      "Basic referral tracking",
-      "CSV export",
-      "LaunchBeam branding",
-    ],
-  },
-  {
-    id: "pro" as const,
-    name: "Pro",
-    price: "$9",
-    description: "For serious launches.",
-    cta: "Start with Pro",
+    description: "For validating your next idea.",
     recommended: true,
     features: [
-      "More subscribers",
-      "Multiple projects",
-      "Full referral rewards",
-      "Custom domain",
-      "Advanced analytics",
-      "Remove LaunchBeam branding",
+      "Create and publish waitlist projects",
+      "Real subscriber collection",
+      "Referral tracking and positions",
+      "Five responsive templates",
+      "Analytics and Demand Score",
+      "CSV export",
+      "LaunchBeam branding",
     ],
   },
 ] as const;
@@ -160,7 +158,7 @@ const faqs = [
   {
     question: "Can I use my own domain?",
     answer:
-      "Custom domains are planned for Pro, but domain connection is not active in the current beta prototype.",
+      "Not yet. Published projects currently use a shareable launchbeam.vercel.app/[slug] address.",
   },
   {
     question: "Can I export my subscriber data?",
@@ -173,19 +171,19 @@ const faqs = [
       "Every subscriber receives a unique project-specific link. Valid referred signups move the referrer toward clear one-, three-, and five-referral milestones.",
   },
   {
-    question: "What happens when I reach my plan limit?",
+    question: "Are billing-based usage limits enforced?",
     answer:
-      "The initial Free experience allows one active project. The data model supports more projects when paid plans are introduced.",
+      "No. The current release does not include paid tiers or billing-based project and subscriber limits.",
   },
   {
     question: "Can I remove LaunchBeam branding?",
     answer:
-      "Removing LaunchBeam branding is planned for Pro and is not an active setting in the current prototype.",
+      "LaunchBeam branding remains on public waitlist pages in the current release.",
   },
   {
     question: "What happens if I cancel?",
     answer:
-      "Billing is not active yet. Cancellation, export, and retention terms will be clear before paid subscriptions launch.",
+      "There is no paid subscription to cancel. You can export your subscriber list and manage your project from the dashboard.",
   },
 ] as const;
 
@@ -196,8 +194,6 @@ export function LandingPage({
 }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [betaPlan, setBetaPlan] = useState<PlanIntent>("free");
-  const [isBetaOpen, setIsBetaOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const accountHref = isAuthenticated ? "/dashboard" : "/signup";
@@ -213,17 +209,6 @@ export function LandingPage({
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    const queryPlan = new URLSearchParams(window.location.search).get("plan");
-    if (queryPlan === "free" || queryPlan === "pro") {
-      const timeout = window.setTimeout(() => {
-        setBetaPlan(queryPlan);
-        setIsBetaOpen(true);
-      }, 0);
-      return () => window.clearTimeout(timeout);
-    }
   }, []);
 
   useEffect(() => {
@@ -321,17 +306,6 @@ export function LandingPage({
     };
   }, []);
 
-  const openBeta = (plan: PlanIntent) => {
-    setBetaPlan(plan);
-    setIsBetaOpen(true);
-    window.history.replaceState(null, "", `?plan=${plan}#early-access`);
-  };
-
-  const closeBeta = () => {
-    setIsBetaOpen(false);
-    window.history.replaceState(null, "", `${window.location.pathname}#top`);
-  };
-
   return (
     <main className="site-shell">
       <Navigation
@@ -343,23 +317,13 @@ export function LandingPage({
         accountHref={accountHref}
         accountLabel={accountLabel}
       />
-      <HeroSection
-        accountHref={accountHref}
-        accountLabel={accountLabel}
-        onJoinBeta={() => openBeta("free")}
-      />
+      <HeroSection accountHref={accountHref} accountLabel={accountLabel} />
       <InsightsSection />
       <FeaturesSection />
-      <PricingSection isAuthenticated={isAuthenticated} />
+      <PricingSection accountHref={accountHref} accountLabel={accountLabel} />
       <FaqSection />
       <FinalCta accountHref={accountHref} accountLabel={accountLabel} />
       <Footer isAuthenticated={isAuthenticated} />
-      <BetaSignupDialog
-        key={`${betaPlan}-${isBetaOpen ? "open" : "closed"}`}
-        isOpen={isBetaOpen}
-        plan={betaPlan}
-        onClose={closeBeta}
-      />
     </main>
   );
 }
@@ -400,9 +364,9 @@ function Navigation({
         </div>
 
         <div className="nav-actions">
-          <BetaCta href={accountHref} size="small">
+          <ActionLink href={accountHref} size="small">
             {accountLabel}
-          </BetaCta>
+          </ActionLink>
         </div>
 
         <button
@@ -440,11 +404,9 @@ function Navigation({
                 {link.label}
               </a>
             ))}
-            <BetaCta
-              href={accountHref}
-            >
+            <ActionLink href={accountHref}>
               {accountLabel}
-            </BetaCta>
+            </ActionLink>
           </div>
         </>
       ) : null}
@@ -455,37 +417,24 @@ function Navigation({
 function HeroSection({
   accountHref,
   accountLabel,
-  onJoinBeta,
 }: {
   accountHref: string;
   accountLabel: string;
-  onJoinBeta: () => void;
 }) {
   return (
     <section className="hero-section" id="top">
       <div className="section-inner hero-inner">
         <div className="hero-copy" data-hero-sequence>
           <h1>Build an audience before you launch.</h1>
-          <p className="hero-lede">
-            Create a polished waitlist, reward referrals, and measure real demand
-            before committing months to your idea.
-          </p>
           <div className="hero-actions">
-            <BetaCta href={accountHref}>
+            <ActionLink href={accountHref}>
               {accountLabel}
-            </BetaCta>
-            <a className="button secondary" href="#product">
-              <span>View demo</span>
+            </ActionLink>
+            <a className="button secondary" href="#demo">
+              <span>Try the interactive demo</span>
               <ArrowRight size={17} aria-hidden="true" />
             </a>
           </div>
-          <p className="trust-line">
-            <span>Private beta</span>
-            Built for indie founders validating their next idea.
-            <button type="button" onClick={onJoinBeta}>
-              Get beta updates
-            </button>
-          </p>
         </div>
 
         <div className="hero-visual">
@@ -499,7 +448,7 @@ function HeroSection({
 function ProductStudio() {
   const [activeTab, setActiveTab] = useState<StudioTab>("page");
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
-  const [templateId, setTemplateId] = useState<TemplateId>("focus");
+  const [templateId, setTemplateId] = useState<TemplateId>("kimchi");
   const [buttonStyle, setButtonStyle] = useState<ButtonStyle>("solid");
   const [headline, setHeadline] = useState<string>(campaign.headline);
   const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
@@ -513,7 +462,7 @@ function ProductStudio() {
   const markChanged = () => setSaveState("saving");
 
   return (
-    <div id="product" className="product-stage" data-reveal="scale">
+    <div id="demo" className="product-stage" data-reveal="scale">
       <BrowserMockup title={`${campaign.startup} campaign`} className="studio-window">
         <div className="studio-toolbar">
           <div className="studio-tabs" role="tablist" aria-label="Campaign workspace">
@@ -559,7 +508,7 @@ function ProductStudio() {
               />
             </div>
             <span className={`draft-status ${saveState}`} aria-live="polite">
-              {saveState === "saving" ? "Saving locally" : "Draft / local preview"}
+              {saveState === "saving" ? "Updating preview" : "Interactive demo"}
             </span>
           </div>
         </div>
@@ -576,7 +525,7 @@ function ProductStudio() {
               <div className="control-group">
                 <div className="control-heading">
                   <span>Campaign copy</span>
-                  <small>Prototype control</small>
+                  <small>Live demo</small>
                 </div>
                 <label className="form-control" htmlFor="studio-headline">
                   <span>Headline</span>
@@ -594,7 +543,7 @@ function ProductStudio() {
                   <span className="campaign-logo" aria-hidden="true">{campaign.logo}</span>
                   <div>
                     <strong>{campaign.startup}</strong>
-                    <span>by {campaign.founder}</span>
+                    <span>launchbeam.vercel.app/{campaign.slug}</span>
                   </div>
                 </div>
               </div>
@@ -604,7 +553,7 @@ function ProductStudio() {
               <div className="control-group">
                 <div className="control-heading">
                   <span>Template</span>
-                  <small>Three distinct directions</small>
+                  <small>Five responsive directions</small>
                 </div>
                 <div className="template-options">
                   {templates.map((template) => (
@@ -749,7 +698,7 @@ function WaitlistPreview({
   return (
     <div className={`preview-viewport ${previewMode}`}>
       <div className={`waitlist-live template-${templateId}`}>
-        {templateId === "product" ? (
+        {templateId === "spotbeam" ? (
           <div className="product-graphic" aria-hidden="true">
             <span />
             <span />
@@ -761,9 +710,7 @@ function WaitlistPreview({
             <span className="campaign-logo" aria-hidden="true">{campaign.logo}</span>
             <span>{campaign.startup}</span>
           </div>
-          <p className="waitlist-kicker">
-            {templateId === "editorial" ? "A new research rhythm" : "Private beta"}
-          </p>
+          <p className="waitlist-kicker">Private beta</p>
           <p className="preview-headline">{headline || "Add a campaign headline"}</p>
           <p>{campaign.description}</p>
           <PreviewSignupForm buttonStyle={buttonStyle} />
@@ -789,7 +736,7 @@ function PreviewSignupForm({ buttonStyle }: { buttonStyle: ButtonStyle }) {
 
   return (
     <div className="signup-demo">
-      <span className="example-form-label">Example waitlist form / prototype</span>
+      <span className="example-form-label">Interactive demo form</span>
       <form className="preview-signup" onSubmit={submit} noValidate>
         <label className="sr-only" htmlFor="kimchi-preview-email">
           Example subscriber email
@@ -819,8 +766,8 @@ function PreviewSignupForm({ buttonStyle }: { buttonStyle: ButtonStyle }) {
         {status === "error"
           ? "Enter a valid email address."
           : status === "success"
-            ? "Prototype complete. No email was sent or stored."
-            : "No email is sent or stored in this example form."}
+            ? "Demo complete. This example did not submit your email."
+            : "Demo only — the address stays in this browser."}
       </p>
     </div>
   );
@@ -856,7 +803,7 @@ function InsightsSection() {
         <SectionHeading
           kicker="Demand and analytics"
           title="Know when your idea is working."
-          copy="LaunchBeam turns conversion and referral activity into one clear launch signal, then keeps the supporting detail close at hand."
+          copy="LaunchBeam turns conversion and referral activity into one clear launch signal. The Kimchi numbers below are simulated example campaign data, not customer results."
         />
 
         <div className="insights-dashboard" data-reveal="scale">
@@ -1009,9 +956,9 @@ function FeaturesSection() {
     <section className="features-section">
       <div className="section-inner feature-layout" id="features">
         <SectionHeading
-          kicker="Product direction"
+          kicker="Product"
           title="The launch essentials, without the noise."
-          copy="The interactive Kimchi demo below is simulated; signed-in projects use real subscribers, referrals, analytics, publishing, and exports."
+          copy="The interactive Kimchi studio above is a clearly marked demo; signed-in projects use real subscribers, referrals, analytics, publishing, and exports."
         />
         <div className="feature-list" data-reveal="group">
           {featureItems.map((feature) => (
@@ -1046,26 +993,29 @@ function FeatureItem({
   );
 }
 
-function PricingSection({ isAuthenticated }: { isAuthenticated: boolean }) {
+function PricingSection({
+  accountHref,
+  accountLabel,
+}: {
+  accountHref: string;
+  accountLabel: string;
+}) {
   return (
     <section className="pricing-section">
       <div className="section-inner" id="pricing">
         <SectionHeading
           align="center"
-          kicker="Beta pricing"
-          title="Start with one idea."
-          copy="Two straightforward plans for the upcoming beta. No payment is collected today."
+          kicker="Pricing"
+          title="Start building today."
+          copy="Build and publish your first waitlist with the tools available today. No card required."
         />
         <div className="pricing-grid" data-reveal="group">
           {plans.map((plan) => (
             <PricingCard
               key={plan.id}
               plan={plan}
-              href={
-                isAuthenticated
-                  ? "/dashboard"
-                  : `/signup?plan=${encodeURIComponent(plan.id)}`
-              }
+              href={accountHref}
+              ctaLabel={accountLabel}
             />
           ))}
         </div>
@@ -1077,9 +1027,11 @@ function PricingSection({ isAuthenticated }: { isAuthenticated: boolean }) {
 function PricingCard({
   plan,
   href,
+  ctaLabel,
 }: {
   plan: (typeof plans)[number];
   href: string;
+  ctaLabel: string;
 }) {
   return (
     <div className={`pricing-card ${plan.recommended ? "recommended" : ""}`}>
@@ -1092,14 +1044,13 @@ function PricingCard({
       </div>
       <div className="price-row">
         <strong>{plan.price}</strong>
-        {plan.id === "pro" ? <span>/month</span> : null}
       </div>
-      <BetaCta
+      <ActionLink
         href={href}
         variant={plan.recommended ? "primary" : "secondary"}
       >
-        {plan.cta}
-      </BetaCta>
+        {ctaLabel}
+      </ActionLink>
       <div className="plan-features">
         {plan.features.map((feature) => (
           <div key={feature}>
@@ -1143,7 +1094,7 @@ function FaqSection() {
         <SectionHeading
           kicker="FAQ"
           title="Six honest answers."
-          copy="LaunchBeam is in beta, so these answers distinguish working product flows from the remaining roadmap."
+          copy="Clear details about the product limits and workflows available today."
         />
         <div className="faq-list" data-reveal="group">
           {faqs.map((item, index) => {
@@ -1195,15 +1146,15 @@ function FinalCta({
 }) {
   return (
     <section className="final-cta-section">
-      <div className="section-inner final-cta" id="early-access" data-reveal="scale">
+      <div className="section-inner final-cta" data-reveal="scale">
         <div>
-          <span>Private beta</span>
+          <span>Start free</span>
           <h2>Create the audience your launch deserves.</h2>
           <p>Start with a focused waitlist and a clearer signal before you build.</p>
         </div>
-        <BetaCta href={accountHref}>
+        <ActionLink href={accountHref}>
           {accountLabel}
-        </BetaCta>
+        </ActionLink>
       </div>
     </section>
   );
@@ -1229,148 +1180,13 @@ function Footer({ isAuthenticated }: { isAuthenticated: boolean }) {
             {isAuthenticated ? "Dashboard" : "Login"}
           </Link>
         </nav>
-        <p>Private beta. Built for indie founders.</p>
+        <p>Built for indie founders validating what comes next.</p>
       </div>
     </footer>
   );
 }
 
-function BetaSignupDialog({
-  isOpen,
-  plan,
-  onClose,
-}: {
-  isOpen: boolean;
-  plan: PlanIntent;
-  onClose: () => void;
-}) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const consentId = useId();
-  const [email, setEmail] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (isOpen && !dialog.open) dialog.showModal();
-    if (!isOpen && dialog.open) dialog.close();
-  }, [isOpen]);
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      setStatus("error");
-      setMessage("Enter a valid email address.");
-      return;
-    }
-    if (!consent) {
-      setStatus("error");
-      setMessage("Confirm that LaunchBeam may email you about beta access.");
-      return;
-    }
-
-    setStatus("loading");
-    setMessage("");
-    try {
-      const response = await fetch("/api/beta-signups", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: normalizedEmail, plan, consent }),
-      });
-      const payload = (await response.json()) as { message?: string; error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "Unable to join the beta right now.");
-      setStatus("success");
-      setMessage(payload.message ?? "You are on the LaunchBeam beta list.");
-    } catch (error) {
-      setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Unable to join the beta right now.");
-    }
-  };
-
-  const close = () => {
-    dialogRef.current?.close();
-    onClose();
-  };
-
-  return (
-    <dialog
-      ref={dialogRef}
-      className="beta-dialog"
-      aria-labelledby="beta-dialog-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        close();
-      }}
-      onClick={(event) => {
-        if (event.currentTarget === event.target) close();
-      }}
-    >
-      <div className="beta-dialog-panel">
-        <button type="button" className="dialog-close" aria-label="Close beta signup" onClick={close}>
-          <X size={18} aria-hidden="true" />
-        </button>
-        <span className="dialog-kicker">LaunchBeam private beta</span>
-        <h2 id="beta-dialog-title">
-          {plan === "pro" ? "Follow Pro updates." : "Get launch updates."}
-        </h2>
-        <p>
-          Join the low-volume beta list for product and access updates. You can
-          create an account separately whenever your Supabase project is configured.
-        </p>
-
-        {status === "success" ? (
-          <div className="dialog-success" role="status">
-            <span className="success-icon" aria-hidden="true"><Check size={22} /></span>
-            <h3>You&apos;re on the beta list.</h3>
-            <p>{message}</p>
-            <button type="button" className="button secondary" onClick={close}>Close</button>
-          </div>
-        ) : (
-          <form className="beta-form" onSubmit={submit} noValidate>
-            <label className="form-control" htmlFor="beta-email">
-              <span>Work email</span>
-              <input
-                id="beta-email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@company.com"
-                value={email}
-                aria-invalid={status === "error"}
-                aria-describedby="beta-form-status"
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                  if (status === "error") setStatus("idle");
-                }}
-              />
-            </label>
-            <label className="consent-control" htmlFor={consentId}>
-              <input
-                id={consentId}
-                type="checkbox"
-                checked={consent}
-                onChange={(event) => setConsent(event.target.checked)}
-              />
-              <span>LaunchBeam may email me about beta access. I can unsubscribe at any time.</span>
-            </label>
-            <button className="button primary beta-submit" type="submit" disabled={status === "loading"}>
-              <span>{status === "loading" ? "Requesting access..." : "Request beta access"}</span>
-              <ArrowRight size={17} aria-hidden="true" />
-            </button>
-            <p id="beta-form-status" className={`beta-form-status ${status}`} aria-live="polite">
-              {message}
-            </p>
-            <p className="data-note">Your email is stored only for LaunchBeam beta access.</p>
-          </form>
-        )}
-      </div>
-    </dialog>
-  );
-}
-
-function BetaCta({
+function ActionLink({
   children,
   href,
   variant = "primary",
@@ -1382,13 +1198,10 @@ function BetaCta({
   size?: "normal" | "small";
 }) {
   return (
-    <a
-      className={`button ${variant} ${size}`}
-      href={href}
-    >
+    <Link className={`button ${variant} ${size}`} href={href}>
       <span>{children}</span>
       <ArrowRight size={size === "small" ? 16 : 17} aria-hidden="true" />
-    </a>
+    </Link>
   );
 }
 

@@ -6,6 +6,7 @@ import {
   readJsonBody,
   requestErrorResponse,
 } from "@/app/api/_shared";
+import { isEmailDeliveryConfigured } from "@/lib/email";
 import { normalizeSlug } from "@/lib/normalize-slug";
 import { logServerError } from "@/lib/logger";
 import { mapProjectRow, type RawProjectRow } from "@/lib/project-records";
@@ -161,6 +162,16 @@ export async function PATCH(
     if (result.data.content !== undefined) updates.content = result.data.content;
     if (result.data.theme !== undefined) updates.theme = result.data.theme;
     if (result.data.settings !== undefined) {
+      if (
+        result.data.settings.requireEmailVerification &&
+        !isEmailDeliveryConfigured()
+      ) {
+        return apiError(
+          "email_verification_unavailable",
+          "Configure transactional email before requiring email verification.",
+          400,
+        );
+      }
       updates.settings = result.data.settings;
     }
 
@@ -270,6 +281,77 @@ export async function DELETE(
       );
     }
 
+    const { data: project, error: projectError } = await supabase
+      .from("projects")
+      .select("id,slug")
+      .eq("id", projectId)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (projectError) {
+      return apiError(
+        "project_delete_failed",
+        "The project could not be deleted.",
+        500,
+      );
+    }
+    if (!project) {
+      return apiError("project_not_found", "Project not found.", 404);
+    }
+
+    const assetFolder = `${user.id}/${projectId}`;
+    while (true) {
+      const { data: assets, error: assetListError } =
+        await supabase.storage
+          .from("project-assets")
+          .list(assetFolder, { limit: 1_000, offset: 0 });
+      if (assetListError) {
+        logServerError("project_asset_cleanup_list_failed", assetListError, {
+          projectId,
+        });
+        return apiError(
+          "project_asset_cleanup_failed",
+          "Project images could not be removed, so the project was kept.",
+          500,
+        );
+      }
+
+      const paths = (assets ?? [])
+        .filter((asset) => asset.id)
+        .map((asset) => `${assetFolder}/${asset.name}`);
+      if (paths.length === 0) {
+        if ((assets?.length ?? 0) > 0) {
+          logServerError(
+            "project_asset_cleanup_incomplete",
+            new Error("Storage returned entries that could not be removed."),
+            { projectId },
+          );
+          return apiError(
+            "project_asset_cleanup_failed",
+            "Project images could not be removed, so the project was kept.",
+            500,
+          );
+        }
+        break;
+      }
+
+      const { error: assetDeleteError } = await supabase.storage
+        .from("project-assets")
+        .remove(paths);
+      if (assetDeleteError) {
+        logServerError(
+          "project_asset_cleanup_delete_failed",
+          assetDeleteError,
+          { projectId },
+        );
+        return apiError(
+          "project_asset_cleanup_failed",
+          "Project images could not be removed, so the project was kept.",
+          500,
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from("projects")
       .delete()
@@ -289,32 +371,7 @@ export async function DELETE(
       return apiError("project_not_found", "Project not found.", 404);
     }
 
-    const assetFolder = `${user.id}/${projectId}`;
-    const { data: assets, error: assetListError } = await supabase.storage
-      .from("project-assets")
-      .list(assetFolder, { limit: 1_000 });
-    if (assetListError) {
-      logServerError("project_asset_cleanup_list_failed", assetListError, {
-        projectId,
-      });
-    } else if (assets?.length) {
-      const paths = assets
-        .filter((asset) => asset.id)
-        .map((asset) => `${assetFolder}/${asset.name}`);
-      if (paths.length) {
-        const { error: assetDeleteError } = await supabase.storage
-          .from("project-assets")
-          .remove(paths);
-        if (assetDeleteError) {
-          logServerError(
-            "project_asset_cleanup_delete_failed",
-            assetDeleteError,
-            { projectId },
-          );
-        }
-      }
-    }
-
+    revalidatePath(`/${project.slug}`);
     return new Response(null, {
       status: 204,
       headers: { "cache-control": "no-store" },

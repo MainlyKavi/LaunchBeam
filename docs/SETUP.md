@@ -6,7 +6,7 @@ multi-tenant waitlist SaaS.
 
 The native Next.js/Vercel target is the primary target for the authenticated
 SaaS and public API. The Vinext/Cloudflare target remains available for the
-existing landing-page and Sites workflow.
+existing Sites workflow and renders the same application source.
 
 ## Prerequisites
 
@@ -85,12 +85,13 @@ clients. The service-role key is used only by server routes that accept public
 signups or analytics. Do not substitute the service-role key for the public
 key.
 
-### 2. Apply the database migration
+### 2. Apply the database migrations
 
-The version-controlled migration is:
+The version-controlled migrations are:
 
 ```text
 supabase/migrations/0001_launchbeam.sql
+supabase/migrations/0002_production_hardening.sql
 ```
 
 Install the Supabase CLI using an official supported method. If this checkout
@@ -120,9 +121,9 @@ Do not create only the tables by hand. The migration also creates the
 constraints, indexes, updated-at triggers, RLS policies, service-role-only RPC
 functions, Storage bucket, and Storage policies required for safe operation.
 
-The migration creates:
+Together the migrations create and harden:
 
-- `projects`, `subscribers`, `events`, and `beta_signups`
+- `projects`, `subscribers`, and `events`
 - Owner-scoped RLS for projects, subscribers, and analytics
 - Public read access only for published projects
 - No direct anonymous subscriber or analytics writes
@@ -133,6 +134,9 @@ The migration creates:
 - A private `project-assets` Storage bucket
 - Owner-folder Storage policies for select, insert, update, and delete
 - A 5 MB upload limit for JPEG, PNG, WebP, and AVIF files
+- Reserved-slug enforcement for new writes and public reads
+- Exact range totals for analytics dashboards whose detailed chart rows are
+  intentionally capped
 
 Use the Supabase SQL editor to verify the result:
 
@@ -143,7 +147,7 @@ select
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public'
-  and c.relname in ('projects', 'subscribers', 'events', 'beta_signups')
+  and c.relname in ('projects', 'subscribers', 'events')
 order by c.relname;
 
 select proname
@@ -151,7 +155,8 @@ from pg_proc
 where pronamespace = 'public'::regnamespace
   and proname in (
     'subscribe_to_waitlist',
-    'confirm_waitlist_subscription'
+    'confirm_waitlist_subscription',
+    'get_project_analytics_totals'
   )
 order by proname;
 
@@ -215,7 +220,7 @@ supabase db reset
 supabase status
 ```
 
-`db reset` is destructive to the local database. It reapplies the migration
+`db reset` is destructive to the local database. It reapplies all migrations
 from scratch. Map the local API URL, anonymous key, and service-role key shown
 by `supabase status` into `.env.local`.
 
@@ -286,9 +291,11 @@ Official references:
 5. Exercise both a public signup and a public analytics event, then confirm
    rate-limit keys appear in the database.
 
-LaunchBeam limits signups to 8 attempts per 10 minutes and analytics events to
-60 per minute for each hashed, project-scoped identifier. Raw IP addresses and
-email addresses are not stored as Redis keys.
+LaunchBeam separately limits each project-and-network signup source and each
+project-and-email pair to 8 attempts per 10 minutes. Analytics events are
+limited to 60 per minute for each project-scoped source. Identifiers are hashed
+before they are stored as Redis keys; raw IP and email values are not used as
+keys.
 
 When Upstash is absent:
 
@@ -331,49 +338,23 @@ email delivery and project-level subscriber confirmation are not under test.
 Kimchi is the default template. New projects also receive the Kimchi default
 content, theme, and settings from the application and database.
 
-### Optional: seed a non-production project with SQL
+### Optional: seed a non-production project
 
-First create the owner through Supabase Auth. Copy the owner's UUID from
-Authentication > Users, replace the all-zero UUID below, and run this only in a
-local, development, or staging SQL editor:
+First create the owner through Supabase Auth and copy the owner UUID from
+Authentication > Users. With the Supabase URL and service-role key present in
+`.env.local`, run:
 
-```sql
-do $$
-declare
-  v_owner_id uuid := '00000000-0000-0000-0000-000000000000';
-begin
-  if not exists (
-    select 1
-    from auth.users
-    where id = v_owner_id
-  ) then
-    raise exception 'Replace v_owner_id with an existing authenticated owner UUID';
-  end if;
-
-  insert into public.projects (
-    owner_id,
-    name,
-    slug,
-    status,
-    template_id,
-    published_at
-  )
-  values (
-    v_owner_id,
-    'Kimchi',
-    'kimchi',
-    'published',
-    'kimchi',
-    now()
-  );
-end
-$$;
+```bash
+npm run seed:kimchi -- --owner-id YOUR_AUTH_USER_UUID
 ```
 
-The insert intentionally has no conflict handler, so it cannot silently
-overwrite an existing `kimchi` project. Do not hardcode a production user ID,
-do not run seed data automatically in production, and do not use the
-service-role key in a browser-side seed script.
+You may set `SEED_OWNER_ID` instead of passing the argument. The script verifies
+that the UUID belongs to an existing Supabase Auth user, creates the exact
+published Kimchi project, and exits idempotently only when the same owner and
+exact seed already exist. If another or modified project owns the `kimchi`
+slug, it fails without changing data. Do not hardcode a production owner, run
+seed data automatically in production, or expose the service-role key to
+browser code.
 
 ## Manual end-to-end verification
 
@@ -463,8 +444,9 @@ Restore the valid key immediately after the negative test.
 1. Open the project subscriber page.
 2. Exercise search, status filtering, pagination, and sort controls.
 3. Copy an email, change a subscriber status, and verify ownership enforcement.
-4. Export CSV and confirm it contains real subscriber data, referral URLs, UTM
-   values, positions, referral counts, statuses, and timestamps.
+4. Export CSV and confirm its exact columns are `email`, `name`, `status`,
+   `position`, `referral_count`, `referred_by`, `utm_source`, `utm_medium`,
+   `utm_campaign`, and `created_at`, populated from real subscriber data.
 5. In a disposable test row, place `=`, `+`, `-`, or `@` at the start of a
    text value. Confirm the exported cell is neutralized before opening the CSV
    in spreadsheet software.
@@ -552,7 +534,7 @@ days. The final score remains hidden until 100 unique visitors exist.
 6. Add the final callback URL to the Supabase Auth redirect allow list.
 7. Add the final hostname to the Turnstile widget.
 8. Confirm the Resend sender domain is verified.
-9. Apply the Supabase migration before sending traffic.
+9. Apply every pending Supabase migration before sending traffic.
 10. Deploy, then repeat the account, publish, signup, referral, email,
     analytics, CSV, and asset smoke tests against the production origin.
 
@@ -602,7 +584,7 @@ external smoke tests as well.
 - Run `supabase db push --dry-run`, then `supabase db push`.
 - Verify both RPC names and the private `project-assets` bucket with the SQL
   checks above.
-- Confirm the app credentials point to the same project that received the
+- Confirm the app credentials point to the same project that received every
   migration.
 
 ### Public waitlist returns 404
@@ -648,7 +630,7 @@ external smoke tests as well.
 
 ### Asset upload fails
 
-- Confirm the migration created the private `project-assets` bucket and Storage
+- Confirm the migrations created the private `project-assets` bucket and Storage
   RLS policies.
 - Confirm the user owns the project.
 - Use JPEG, PNG, WebP, or AVIF no larger than 5 MB.

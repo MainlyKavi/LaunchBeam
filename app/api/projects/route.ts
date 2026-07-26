@@ -1,4 +1,5 @@
 import { apiError, apiJson, firstValidationMessage, readJsonBody, requestErrorResponse } from "@/app/api/_shared";
+import { isEmailDeliveryConfigured } from "@/lib/email";
 import { normalizeSlug } from "@/lib/normalize-slug";
 import { mapProjectRow, type RawProjectRow } from "@/lib/project-records";
 import { isReservedSlug } from "@/lib/reserved-slugs";
@@ -7,7 +8,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   DEFAULT_PROJECT_CONTENT,
   DEFAULT_PROJECT_SETTINGS,
-  DEFAULT_PROJECT_THEME,
+  TEMPLATE_THEME_PRESETS,
 } from "@/lib/types";
 import { projectCreateSchema } from "@/lib/validation/project";
 
@@ -59,26 +60,14 @@ export async function POST(request: Request): Promise<Response> {
         400,
       );
     }
-
-    const { data: activeProject, error: activeProjectError } = await supabase
-      .from("projects")
-      .select("id")
-      .eq("owner_id", user.id)
-      .neq("status", "archived")
-      .limit(1)
-      .maybeSingle();
-    if (activeProjectError) {
+    if (
+      result.data.settings?.requireEmailVerification &&
+      !isEmailDeliveryConfigured()
+    ) {
       return apiError(
-        "service_unavailable",
-        "Project creation is temporarily unavailable.",
-        503,
-      );
-    }
-    if (activeProject) {
-      return apiError(
-        "project_limit_reached",
-        "This workspace already has an active project.",
-        409,
+        "email_verification_unavailable",
+        "Configure transactional email before requiring email verification.",
+        400,
       );
     }
 
@@ -112,7 +101,9 @@ export async function POST(request: Request): Promise<Response> {
         slug,
         template_id: result.data.templateId,
         content: result.data.content ?? DEFAULT_PROJECT_CONTENT,
-        theme: result.data.theme ?? DEFAULT_PROJECT_THEME,
+        theme:
+          result.data.theme ??
+          TEMPLATE_THEME_PRESETS[result.data.templateId],
         settings: result.data.settings ?? DEFAULT_PROJECT_SETTINGS,
       })
       .select(
@@ -122,13 +113,6 @@ export async function POST(request: Request): Promise<Response> {
 
     if (error || !data) {
       if (error?.code === "23505") {
-        if (error.message.includes("projects_one_active_per_owner_idx")) {
-          return apiError(
-            "project_limit_reached",
-            "This workspace already has an active project.",
-            409,
-          );
-        }
         return apiError(
           "slug_unavailable",
           "That public URL is already in use.",

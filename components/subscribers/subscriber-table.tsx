@@ -152,7 +152,12 @@ export function SubscriberTable({
                 <td data-label="Position">#{subscriber.position}</td>
                 <td data-label="Referrals">{subscriber.referralCount}</td>
                 <td data-label="Attribution">
-                  <span>{subscriber.utmSource || "Direct"}</span>
+                  <span>
+                    {subscriber.utmSource || "Direct"}
+                    {subscriber.utmMedium
+                      ? ` / ${subscriber.utmMedium}`
+                      : ""}
+                  </span>
                   {subscriber.utmCampaign ? (
                     <small>{subscriber.utmCampaign}</small>
                   ) : null}
@@ -163,6 +168,7 @@ export function SubscriberTable({
                 <td data-label="Joined">
                   {new Intl.DateTimeFormat("en", {
                     dateStyle: "medium",
+                    timeStyle: "short",
                   }).format(new Date(subscriber.createdAt))}
                 </td>
                 <td className="subscriber-row-actions">

@@ -35,10 +35,12 @@ export function clearReferralCookieHeader(projectId: string): string {
 }
 
 export function clientIp(request: Request): string | undefined {
-  const direct =
-    request.headers.get("cf-connecting-ip") ??
-    request.headers.get("x-real-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0];
+  const direct = process.env.VERCEL
+    ? request.headers.get("x-vercel-forwarded-for")?.split(",")[0] ??
+      request.headers.get("x-real-ip")
+    : request.headers.get("cf-connecting-ip") ??
+      request.headers.get("x-real-ip") ??
+      request.headers.get("x-forwarded-for")?.split(",")[0];
   const normalized = direct?.trim();
   return normalized && normalized.length <= 64 ? normalized : undefined;
 }
@@ -85,7 +87,13 @@ export function confirmationPage(
   const headers = new Headers(extraHeaders);
   headers.set("content-type", "text/html; charset=utf-8");
   headers.set("cache-control", "no-store");
+  headers.set(
+    "content-security-policy",
+    "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  );
+  headers.set("referrer-policy", "no-referrer");
   headers.set("x-content-type-options", "nosniff");
+  headers.set("x-frame-options", "DENY");
   headers.set("x-robots-tag", "noindex, nofollow");
 
   const html = `<!doctype html>

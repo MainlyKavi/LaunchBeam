@@ -1,5 +1,5 @@
 {
-  "name": "launchbeam-landing-page",
+  "name": "launchbeam",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -16,14 +16,13 @@
     "test:core": "node --experimental-strip-types --test --test-isolation=none tests/rendered-html.test.mjs tests/saas-core.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work --ignore-pattern outputs",
     "typecheck": "tsc --noEmit",
-    "db:generate": "drizzle-kit generate"
+    "seed:kimchi": "node --env-file-if-exists=.env.local scripts/seed-kimchi.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.8",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
-    "drizzle-orm": "0.45.2",
     "lucide-react": "^0.545.0",
     "next": "16.2.6",
     "react": "19.2.6",
@@ -40,7 +39,6 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
-    "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "react-server-dom-webpack": "19.2.6",

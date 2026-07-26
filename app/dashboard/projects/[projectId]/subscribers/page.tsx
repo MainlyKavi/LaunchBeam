@@ -16,7 +16,7 @@ const validStatuses = new Set(["all", "pending", "subscribed", "unsubscribed"]);
 const validSorts = new Set(["newest", "oldest", "position", "referrals"]);
 
 function safeSearch(value: string) {
-  return value.replace(/[%_,().]/g, "").trim().slice(0, 100);
+  return value.replace(/[%(),]/g, "").trim().slice(0, 100);
 }
 
 export default async function ProjectSubscribersPage({
@@ -110,6 +110,12 @@ export default async function ProjectSubscribersPage({
     utmCampaign: row.utm_campaign,
     createdAt: row.created_at,
   }));
+  const subscriberVersion = subscribers
+    .map(
+      (subscriber) =>
+        `${subscriber.id}:${subscriber.status}:${subscriber.position}:${subscriber.referralCount}:${subscriber.createdAt}`,
+    )
+    .join("|");
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -184,7 +190,11 @@ export default async function ProjectSubscribersPage({
         <span>{total === 1 ? "subscriber" : "subscribers"}</span>
       </div>
 
-      <SubscriberTable projectId={projectId} subscribers={subscribers} />
+      <SubscriberTable
+        key={`${page}:${status}:${sort}:${search}:${subscriberVersion}`}
+        projectId={projectId}
+        subscribers={subscribers}
+      />
 
       {totalPages > 1 ? (
         <nav className="subscriber-pagination" aria-label="Subscriber pages">

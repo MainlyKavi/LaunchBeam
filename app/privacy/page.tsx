@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Privacy | LaunchBeam",
   description:
     "Starter privacy notice for the LaunchBeam waitlist platform.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {
@@ -24,10 +25,10 @@ export default function PrivacyPage() {
 
       <article className="legal-document">
         <header>
-          <p>Starter policy · Last updated July 25, 2026</p>
+          <p>Starter policy · Last updated July 26, 2026</p>
           <h1>Privacy</h1>
           <div className="legal-notice">
-            This is a starter policy for the LaunchBeam beta. It must be reviewed
+            This is a starter policy for LaunchBeam. It must be reviewed
             by a qualified professional and updated to match the operator&apos;s
             real practices before commercial launch. It is not legal advice.
           </div>
@@ -102,8 +103,7 @@ export default function PrivacyPage() {
             abuse, deliver requested email, attribute referrals, show project
             analytics, export subscriber data for the project owner, investigate
             failures, and keep the service secure. LaunchBeam does not implement
-            third-party advertising profiles or sell subscriber information in
-            this beta codebase.
+            third-party advertising profiles or sell subscriber information.
           </p>
         </section>
 
@@ -154,7 +154,7 @@ export default function PrivacyPage() {
       </article>
 
       <footer className="legal-footer">
-        <span>LaunchBeam beta</span>
+        <span>LaunchBeam</span>
         <div>
           <Link href="/">Home</Link>
           <Link href="/terms">Terms</Link>

@@ -2,6 +2,7 @@ import { isUuid } from "@/app/api/_shared";
 import { confirmationPage } from "@/app/api/public/_shared";
 import { logServerError } from "@/lib/logger";
 import { normalizeSlug } from "@/lib/normalize-slug";
+import { isReservedSlug } from "@/lib/reserved-slugs";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { hashToken, verifySignedToken } from "@/lib/tokens";
 
@@ -28,6 +29,7 @@ export async function GET(
     if (
       !slug ||
       slug !== rawSlug.toLowerCase() ||
+      isReservedSlug(slug) ||
       !isUuid(subscriberId) ||
       !/^[a-zA-Z0-9_-]{32,128}$/.test(token) ||
       guardPayload?.subscriberId !== subscriberId

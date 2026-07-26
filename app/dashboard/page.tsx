@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
 import {
   ArrowRight,
+  Eye,
   ExternalLink,
   Plus,
   Settings,
   Sparkles,
   TriangleAlert,
-  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CopyLinkButton } from "@/app/dashboard/copy-link-button";
-import { ProjectStatusButton } from "@/app/dashboard/project-status-button";
+import {
+  ProjectDeleteButton,
+  ProjectStatusButton,
+} from "@/app/dashboard/project-status-button";
 import {
   mapProjectRow,
   type ProjectView,
@@ -148,41 +151,6 @@ function getProjectInitial(project: ProjectView): string {
   return project.name.trim().charAt(0) || "L";
 }
 
-function ConfigurationState() {
-  return (
-    <>
-      <div className="db-page-head">
-        <div className="db-page-head-copy">
-          <span className="db-eyebrow">Workspace setup</span>
-          <h1>Connect your data layer</h1>
-          <p>
-            LaunchBeam is ready to use once this deployment can reach your
-            Supabase project.
-          </p>
-        </div>
-      </div>
-
-      <section className="db-state-card" aria-labelledby="setup-title">
-        <span className="db-state-icon" aria-hidden="true">
-          <Wrench />
-        </span>
-        <h2 id="setup-title">Supabase configuration needed</h2>
-        <p>
-          Add the public project credentials, restart the app, and this page
-          will begin showing owner-scoped projects and real analytics.
-        </p>
-        <div className="db-setup-list" aria-label="Required environment variables">
-          <code>NEXT_PUBLIC_SUPABASE_URL</code>
-          <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>
-        </div>
-        <Link className="db-secondary-button" href="/">
-          Return to the site
-        </Link>
-      </section>
-    </>
-  );
-}
-
 function ProjectLoadError() {
   return (
     <>
@@ -238,10 +206,12 @@ function ProjectCard({
   project,
   siteUrl,
   stats,
+  emailDeliveryAvailable,
 }: {
   project: ProjectView;
   siteUrl: string;
   stats: ProjectStats;
+  emailDeliveryAvailable: boolean;
 }) {
   const publicUrl = `${siteUrl}/${project.slug}`;
   const publicDisplay = publicUrl.replace(/^https?:\/\//, "");
@@ -287,10 +257,21 @@ function ProjectCard({
           <CopyLinkButton url={publicUrl} />
           {project.status !== "archived" ? (
             <ProjectStatusButton
+              disabledReason={
+                !isPublished &&
+                project.settings.requireEmailVerification &&
+                !emailDeliveryAvailable
+                  ? "Configure email delivery or turn off email confirmation before publishing."
+                  : undefined
+              }
               projectId={project.id}
               published={isPublished}
             />
           ) : null}
+          <ProjectDeleteButton
+            projectId={project.id}
+            projectName={project.name}
+          />
         </div>
       </div>
 
@@ -334,6 +315,15 @@ function ProjectCard({
         <div className="db-project-links">
           <Link
             className="db-quiet-button"
+            href={`/preview/${project.id}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Eye aria-hidden="true" />
+            Preview
+          </Link>
+          <Link
+            className="db-quiet-button"
             href={`/dashboard/projects/${project.id}/edit`}
           >
             Open editor
@@ -373,10 +363,8 @@ function ProjectCard({
 
 export default async function DashboardPage() {
   if (!isSupabaseConfigured()) {
-    return (
-      <main>
-        <ConfigurationState />
-      </main>
+    redirect(
+      "/login?next=/dashboard&error=Account%20access%20is%20temporarily%20unavailable.",
     );
   }
 
@@ -420,16 +408,16 @@ export default async function DashboardPage() {
 
   const projects = projectRows.map(mapProjectRow);
   const siteUrl = await getSiteUrl();
+  const emailDeliveryAvailable = Boolean(
+    process.env.RESEND_API_KEY?.trim() &&
+      process.env.RESEND_FROM_EMAIL?.trim(),
+  );
   const projectsWithStats = await Promise.all(
     projects.map(async (project) => ({
       project,
       stats: await getProjectStats(supabase, project.id),
     })),
   );
-  const hasActiveProject = projects.some(
-    (project) => project.status !== "archived",
-  );
-
   return (
     <main>
       <div className="db-page-head">
@@ -441,12 +429,10 @@ export default async function DashboardPage() {
             understand demand.
           </p>
         </div>
-        {!hasActiveProject ? (
-          <Link className="db-primary-button" href="/dashboard/projects/new">
-            <Plus aria-hidden="true" />
-            New project
-          </Link>
-        ) : null}
+        <Link className="db-primary-button" href="/dashboard/projects/new">
+          <Plus aria-hidden="true" />
+          New project
+        </Link>
       </div>
 
       {projects.length === 0 ? (
@@ -459,6 +445,7 @@ export default async function DashboardPage() {
               project={project}
               siteUrl={siteUrl}
               stats={stats}
+              emailDeliveryAvailable={emailDeliveryAvailable}
             />
           ))}
         </section>

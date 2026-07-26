@@ -9,6 +9,7 @@ type RateLimitResult = {
   remaining: number;
   reset: number;
   configured: boolean;
+  available: boolean;
 };
 
 let signupLimiter: Ratelimit | null = null;
@@ -35,6 +36,8 @@ function getLimiter(kind: LimitKind) {
         : Ratelimit.slidingWindow(60, "1 m"),
     prefix: `launchbeam:${kind}`,
     analytics: false,
+    // The SDK marks its bounded timeout as an allowed result. We explicitly
+    // turn that result into an unavailable/fail-closed response below.
     timeout: 1_500,
   });
   if (kind === "signup") signupLimiter = limiter;
@@ -58,14 +61,35 @@ export async function checkRateLimit(
       remaining: allowed ? 1 : 0,
       reset: Date.now() + 60_000,
       configured: false,
+      available: allowed,
     };
   }
 
-  const result = await limiter.limit(hashRateLimitIdentifier(identifier));
-  return {
-    success: result.success,
-    remaining: result.remaining,
-    reset: result.reset,
-    configured: true,
-  };
+  try {
+    const result = await limiter.limit(hashRateLimitIdentifier(identifier));
+    if (result.reason === "timeout") {
+      return {
+        success: false,
+        remaining: 0,
+        reset: Date.now() + 60_000,
+        configured: true,
+        available: false,
+      };
+    }
+    return {
+      success: result.success,
+      remaining: result.remaining,
+      reset: result.reset,
+      configured: true,
+      available: true,
+    };
+  } catch {
+    return {
+      success: false,
+      remaining: 0,
+      reset: Date.now() + 60_000,
+      configured: true,
+      available: false,
+    };
+  }
 }

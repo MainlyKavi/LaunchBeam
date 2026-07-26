@@ -56,7 +56,7 @@ npm ci
 ```
 
 Copy `.env.example` to `.env.local`, configure Supabase, and apply
-`supabase/migrations/0001_launchbeam.sql`. Then run the native Next.js target:
+all migrations under `supabase/migrations/`. Then run the native Next.js target:
 
 ```bash
 npm run dev:vercel
@@ -80,16 +80,16 @@ npm run start:vercel
 npm run lint
 npm run typecheck
 npm test
-npm run db:generate
+npm run seed:kimchi -- --owner-id YOUR_AUTH_USER_UUID
 ```
 
 - `dev:vercel`, `build:vercel`, and `start:vercel` are the canonical native
   Next.js/Vercel SaaS commands.
 - `dev`, `build`, and `start` preserve the Vinext/Cloudflare Sites target used
   by the existing landing-page workflow.
-- `db:generate` maintains the preserved Drizzle/D1 fallback for marketing-page
-  beta requests. Configured SaaS deployments store those requests in Supabase,
-  whose schema is versioned under `supabase/migrations/`.
+- `seed:kimchi` safely creates the optional published Kimchi development
+  project for an explicit existing Supabase Auth owner. It never overwrites an
+  existing `kimchi` slug.
 
 ## External services
 

@@ -103,8 +103,8 @@ export function AnalyticsView({
 
       {analytics.truncated ? (
         <p className="analytics-data-note">
-          This view reached its safe query window. Export or add database
-          aggregation before using it for a larger launch.
+          Headline totals are exact. Charts and breakdowns show the most recent
+          rows in this range because the safe detail window was reached.
         </p>
       ) : null}
     </>
@@ -123,12 +123,23 @@ function BarSeries({
     return <p className="analytics-empty-copy large">{emptyCopy}</p>;
   }
 
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const peak = data.reduce((highest, item) =>
+    item.value > highest.value ? item : highest,
+  );
+
   return (
-    <div className="analytics-bars" role="img" aria-label="Time series bar chart">
+    <div
+      className="analytics-bars"
+      role="list"
+      aria-label={`Time series with ${data.length} periods and ${total.toLocaleString()} total events. Peak: ${peak.value.toLocaleString()} on ${peak.label}.`}
+    >
       {data.map((item, index) => (
         <div
           className="analytics-bar-column"
           key={`${item.label}-${index}`}
+          role="listitem"
+          aria-label={`${item.label}: ${item.value.toLocaleString()}`}
           title={`${item.label}: ${item.value}`}
         >
           <span
@@ -192,7 +203,7 @@ function DemandScoreCard({ analytics }: { analytics: ProjectAnalytics }) {
             {demandScore.minimumVisitors}
           </strong>
           <p>
-            Collect at least {demandScore.minimumVisitors} unique visitors before
+            Collect at least {demandScore.minimumVisitors} visitors before
             calculating a Demand Score.
           </p>
           <progress
@@ -233,6 +244,7 @@ function BreakdownCard({
               <span>
                 {item.label}
                 <i
+                  aria-hidden="true"
                   style={{
                     width: `${total ? (item.value / total) * 100 : 0}%`,
                   }}

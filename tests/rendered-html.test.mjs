@@ -21,14 +21,30 @@ test("the LaunchBeam page has one positioning and campaign contract", async () =
   assert.match(layout, /LaunchBeam \| Build a waitlist and validate demand/i);
   assert.match(layout, /LaunchBeam's Demand Score/i);
   assert.match(landingPage, /Build an audience before you launch\./i);
-  assert.match(landingPage, /Create a polished waitlist, reward referrals/i);
   assert.match(landingPage, /startup: "Kimchi"/i);
   assert.match(landingPage, /visitors: 4260/);
   assert.match(landingPage, /signups: 1108/);
   assert.match(landingPage, /conversion: "26\.0%"/);
   assert.match(landingPage, /referralSignups: 312/);
   assert.match(landingPage, /demandScore: 78/);
-  assert.match(landingPage, /price: "\$9"/);
+  assert.match(landingPage, /slug: "kimchi"/);
+  assert.match(
+    landingPage,
+    /headline: "Research that finds the signal in customer conversations\."/,
+  );
+  assert.match(
+    landingPage,
+    /Kimchi turns interviews and support calls into clear product decisions\./,
+  );
+  for (const templateId of [
+    "minimal-beam",
+    "kimchi",
+    "kevinora",
+    "spotbeam",
+    "darkrai",
+  ]) {
+    assert.match(landingPage, new RegExp(`id: "${templateId}"`));
+  }
   assert.match(landingPage, /Six honest answers\./i);
   assert.equal(landingPage.includes(removedHeroCopy), false);
   assert.doesNotMatch(
@@ -100,30 +116,33 @@ test("the redesign stays light-only and keeps accessible interactive controls", 
   assert.match(landingPage, /aria-controls=/);
   assert.match(
     landingPage,
-    /window\.history\.replaceState\(null,\s*"",\s*`\?plan=\$\{plan\}#early-access`\)/,
+    /const accountHref = isAuthenticated \? "\/dashboard" : "\/signup"/,
   );
   assert.match(
     landingPage,
-    /const accountHref = isAuthenticated \? "\/dashboard" : "\/signup"/,
+    /const accountLabel = isAuthenticated\s*\?\s*"Open dashboard"\s*:\s*"Create your waitlist"/,
   );
-  assert.match(landingPage, /Enter a valid email address\./);
+  assert.match(landingPage, /Try the interactive demo/);
+  assert.doesNotMatch(
+    landingPage,
+    /beta-signups|Request beta access|Accounts are not open yet|Prototype control|Planned for beta/i,
+  );
   assert.doesNotMatch(landingPage, /signin-with-chatgpt|name:\s*["']Growth["']/i);
 });
 
-test("the marketing palette remains monochrome outside macOS window controls", async () => {
+test("the marketing palette keeps restrained, explicit template previews", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const colors = styles.match(/#[\da-f]{6}\b/gi) ?? [];
   const windowControlColors = new Set(["#ff5f57", "#febc2e", "#28c840"]);
 
-  for (const color of colors) {
-    if (windowControlColors.has(color.toLowerCase())) continue;
-    const red = Number.parseInt(color.slice(1, 3), 16);
-    const green = Number.parseInt(color.slice(3, 5), 16);
-    const blue = Number.parseInt(color.slice(5, 7), 16);
-    assert.ok(
-      Math.max(red, green, blue) - Math.min(red, green, blue) <= 5,
-      `Unexpected non-monochrome color: ${color}`,
-    );
+  for (const templateId of [
+    "minimal-beam",
+    "kimchi",
+    "kevinora",
+    "spotbeam",
+    "darkrai",
+  ]) {
+    assert.match(styles, new RegExp(`\\.template-swatch\\.${templateId}`));
+    assert.match(styles, new RegExp(`\\.template-${templateId}`));
   }
 
   for (const color of windowControlColors) {
@@ -133,27 +152,36 @@ test("the marketing palette remains monochrome outside macOS window controls", a
   assert.doesNotMatch(styles, /\b(?:blue|cyan|indigo|sky|teal)-\d+\b/i);
 });
 
-test("the beta signup endpoint validates requests before storage", async () => {
-  const [route, database, migration, vercelConfig, packageJson] = await Promise.all([
-    readFile(new URL("../app/api/beta-signups/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../db/index.ts", import.meta.url), "utf8"),
-    readFile(new URL("../drizzle/0000_classy_roulette.sql", import.meta.url), "utf8"),
-    readFile(new URL("../vercel.json", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-  ]);
+test("the production application uses the native Next target and Supabase APIs", async () => {
+  const [subscribeRoute, projectRoute, migration, vercelConfig, packageJson] =
+    await Promise.all([
+      readFile(
+        new URL("../app/api/public/[slug]/subscribe/route.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../app/api/projects/route.ts", import.meta.url), "utf8"),
+      readFile(
+        new URL("../supabase/migrations/0001_launchbeam.sql", import.meta.url),
+        "utf8",
+      ),
+      readFile(new URL("../vercel.json", import.meta.url), "utf8"),
+      readFile(new URL("../package.json", import.meta.url), "utf8"),
+    ]);
 
-  assert.match(route, /EMAIL_PATTERN/);
-  assert.match(route, /normalizedEmail\.length > 254/);
-  assert.match(route, /plan !== "free" && plan !== "pro"/);
-  assert.match(route, /consent !== true/);
-  assert.match(route, /onConflictDoUpdate/);
-  assert.match(route, /cache-control/);
-  assert.doesNotMatch(database, /^import\s+\{\s*env\s*\}\s+from\s+["']cloudflare:workers["']/m);
-  assert.match(database, /await import\(["']cloudflare:workers["']\)/);
-  assert.match(database, /process\.env\.VERCEL/);
+  assert.match(subscribeRoute, /subscribeSchema\.safeParse/);
+  assert.match(subscribeRoute, /subscribe_to_waitlist/);
+  assert.match(subscribeRoute, /verifyTurnstileToken/);
+  assert.match(projectRoute, /createServerSupabaseClient/);
+  assert.match(projectRoute, /\.from\("projects"\)/);
   assert.match(vercelConfig, /"framework":\s*"nextjs"/);
   assert.match(vercelConfig, /"buildCommand":\s*"npm run build:vercel"/);
   assert.match(packageJson, /"build:vercel":\s*"next build"/);
-  assert.match(migration, /CREATE TABLE `beta_signups`/);
-  assert.match(migration, /`email` text NOT NULL/);
+  assert.match(
+    packageJson,
+    /"seed:kimchi":\s*"node --env-file-if-exists=\.env\.local scripts\/seed-kimchi\.mjs"/,
+  );
+  assert.doesNotMatch(packageJson, /drizzle|db:generate/i);
+  assert.match(migration, /create table if not exists public\.projects/);
+  assert.match(migration, /create table if not exists public\.subscribers/);
+  assert.match(migration, /create table if not exists public\.events/);
 });

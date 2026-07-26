@@ -461,8 +461,19 @@
 
 .db-project-head-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 7px;
+}
+
+.db-action-hint {
+  flex: 1 0 100%;
+  max-width: 330px;
+  color: #79591d;
+  font-size: 9px;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .db-icon-button {

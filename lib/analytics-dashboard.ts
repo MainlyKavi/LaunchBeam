@@ -86,6 +86,22 @@ function topData(map: Map<string, number>, limit = 6): AnalyticsDatum[] {
     .map(([label, value]) => ({ label, value }));
 }
 
+function isMissingAnalyticsTotalsRpc(error: {
+  code?: string;
+  message?: string;
+}): boolean {
+  if (error.code === "PGRST202" || error.code === "42883") {
+    return true;
+  }
+  const message = error.message?.toLowerCase() ?? "";
+  return (
+    message.includes("get_project_analytics_totals") &&
+    (message.includes("could not find") ||
+      message.includes("does not exist") ||
+      message.includes("schema cache"))
+  );
+}
+
 function sourceFromEvent(event: EventRow) {
   const utmSource = metadataString(event.metadata, "utmSource");
   if (utmSource) return utmSource;
@@ -156,12 +172,12 @@ async function fetchPageViews(
   const rows: EventRow[] = [];
   for (
     let offset = 0;
-    offset <= MAXIMUM_PAGE_VIEW_ROWS;
+    offset < MAXIMUM_PAGE_VIEW_ROWS;
     offset += ANALYTICS_PAGE_SIZE
   ) {
     const finalRow = Math.min(
       offset + ANALYTICS_PAGE_SIZE - 1,
-      MAXIMUM_PAGE_VIEW_ROWS,
+      MAXIMUM_PAGE_VIEW_ROWS - 1,
     );
     let request = supabase
       .from("events")
@@ -170,8 +186,8 @@ async function fetchPageViews(
       )
       .eq("project_id", projectId)
       .eq("event_type", "page_view")
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: true })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(offset, finalRow);
     if (start) request = request.gte("created_at", start);
 
@@ -192,19 +208,19 @@ async function fetchSubscribers(
   const rows: SubscriberAnalyticsRow[] = [];
   for (
     let offset = 0;
-    offset <= MAXIMUM_SUBSCRIBER_ROWS;
+    offset < MAXIMUM_SUBSCRIBER_ROWS;
     offset += ANALYTICS_PAGE_SIZE
   ) {
     const finalRow = Math.min(
       offset + ANALYTICS_PAGE_SIZE - 1,
-      MAXIMUM_SUBSCRIBER_ROWS,
+      MAXIMUM_SUBSCRIBER_ROWS - 1,
     );
     let request = supabase
       .from("subscribers")
       .select("id,status,referred_by,referral_count,created_at")
       .eq("project_id", projectId)
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: true })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(offset, finalRow);
     if (start) request = request.gte("created_at", start);
 
@@ -231,6 +247,7 @@ export async function getProjectAnalytics(
   const [
     events,
     subscribers,
+    rangeTotalsResult,
     uniqueVisitorsResult,
     allConfirmedResult,
     allReferralResult,
@@ -240,6 +257,10 @@ export async function getProjectAnalytics(
   ] = await Promise.all([
     fetchPageViews(supabase, projectId, start),
     fetchSubscribers(supabase, projectId, start),
+    supabase.rpc("get_project_analytics_totals", {
+      p_project_id: projectId,
+      p_start: start,
+    }),
     supabase.rpc("get_project_unique_visitors", {
       p_project_id: projectId,
     }),
@@ -278,6 +299,8 @@ export async function getProjectAnalytics(
   ]);
 
   if (
+    (rangeTotalsResult.error &&
+      !isMissingAnalyticsTotalsRpc(rangeTotalsResult.error)) ||
     uniqueVisitorsResult.error ||
     allConfirmedResult.error ||
     allReferralResult.error ||
@@ -291,30 +314,44 @@ export async function getProjectAnalytics(
   const pageViewEvents = events.filter(
     (event) => event.event_type === "page_view",
   );
-  const uniqueVisitors = new Set(
-    pageViewEvents
-      .map((event) => event.session_id)
-      .filter((id): id is string => Boolean(id)),
-  ).size;
-  const allUniqueVisitors = Math.max(
-    0,
-    Number(uniqueVisitorsResult.data ?? 0),
-  );
   const validSubscribers = subscribers.filter(
     (subscriber) => subscriber.status !== "unsubscribed",
   );
   const confirmedSubscriberRows = subscribers.filter(
     (subscriber) => subscriber.status === "subscribed",
   );
-  const confirmedSubscribers = confirmedSubscriberRows.length;
-  const referralSignups = confirmedSubscriberRows.filter(
-    (subscriber) => subscriber.referred_by,
-  ).length;
+  const rangeTotals = rangeTotalsResult.error
+    ? null
+    : rangeTotalsResult.data?.[0] ?? null;
+  const uniqueVisitors = rangeTotals
+    ? Math.max(0, Number(rangeTotals.unique_visitors))
+    : new Set(
+        pageViewEvents
+          .map((event) => event.session_id)
+          .filter((id): id is string => Boolean(id)),
+      ).size;
+  const pageViews = rangeTotals
+    ? Math.max(0, Number(rangeTotals.page_views))
+    : pageViewEvents.length;
+  const subscriberTotal = rangeTotals
+    ? Math.max(0, Number(rangeTotals.subscribers))
+    : validSubscribers.length;
+  const confirmedSubscribers = rangeTotals
+    ? Math.max(0, Number(rangeTotals.confirmed_subscribers))
+    : confirmedSubscriberRows.length;
+  const referralSignups = rangeTotals
+    ? Math.max(0, Number(rangeTotals.referral_signups))
+    : confirmedSubscriberRows.filter((subscriber) => subscriber.referred_by)
+        .length;
+  const allUniqueVisitors = Math.max(
+    0,
+    Number(uniqueVisitorsResult.data ?? 0),
+  );
   const conversionRate = uniqueVisitors
-    ? (validSubscribers.length / uniqueVisitors) * 100
+    ? (subscriberTotal / uniqueVisitors) * 100
     : 0;
-  const referralRate = validSubscribers.length
-    ? (referralSignups / validSubscribers.length) * 100
+  const referralRate = subscriberTotal
+    ? (referralSignups / subscriberTotal) * 100
     : 0;
 
   const sources = new Map<string, number>();
@@ -334,8 +371,8 @@ export async function getProjectAnalytics(
   return {
     uniqueVisitors,
     demandVisitors: allUniqueVisitors,
-    pageViews: pageViewEvents.length,
-    subscribers: validSubscribers.length,
+    pageViews,
+    subscribers: subscriberTotal,
     confirmedSubscribers,
     conversionRate,
     referralSignups,
@@ -358,7 +395,9 @@ export async function getProjectAnalytics(
       previousSignups: previousResult.count ?? 0,
     }),
     truncated:
-      events.length > MAXIMUM_PAGE_VIEW_ROWS ||
-      subscribers.length > MAXIMUM_SUBSCRIBER_ROWS,
+      (rangeTotals
+        ? pageViews > pageViewEvents.length
+        : pageViewEvents.length >= MAXIMUM_PAGE_VIEW_ROWS) ||
+      subscribers.length >= MAXIMUM_SUBSCRIBER_ROWS,
   };
 }

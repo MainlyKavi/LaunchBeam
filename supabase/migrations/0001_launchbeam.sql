@@ -70,10 +70,6 @@ create index if not exists projects_created_at_idx
   on public.projects(created_at desc);
 create index if not exists projects_updated_at_idx
   on public.projects(updated_at desc);
-create unique index if not exists projects_one_active_per_owner_idx
-  on public.projects(owner_id)
-  where status <> 'archived';
-
 create table if not exists public.subscribers (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
@@ -172,19 +168,6 @@ create index if not exists events_subscriber_id_idx
   on public.events(subscriber_id)
   where subscriber_id is not null;
 
-create table if not exists public.beta_signups (
-  id uuid primary key default gen_random_uuid(),
-  email text not null unique
-    check (
-      email = lower(trim(email))
-      and char_length(email) between 3 and 254
-    ),
-  plan text not null check (plan in ('free', 'pro')),
-  consent boolean not null check (consent = true),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -206,15 +189,9 @@ create trigger subscribers_set_updated_at
 before update on public.subscribers
 for each row execute function public.set_updated_at();
 
-drop trigger if exists beta_signups_set_updated_at on public.beta_signups;
-create trigger beta_signups_set_updated_at
-before update on public.beta_signups
-for each row execute function public.set_updated_at();
-
 alter table public.projects enable row level security;
 alter table public.subscribers enable row level security;
 alter table public.events enable row level security;
-alter table public.beta_signups enable row level security;
 
 grant select on public.projects to anon;
 grant select, insert, update, delete on public.projects to authenticated;
@@ -321,8 +298,6 @@ grant select, delete on public.subscribers to authenticated;
 grant update(status) on public.subscribers to authenticated;
 revoke all on public.events from anon, authenticated;
 grant select on public.events to authenticated;
-revoke all on public.beta_signups from anon, authenticated;
-
 create or replace function public.subscribe_to_waitlist(
   p_project_slug text,
   p_email text,
