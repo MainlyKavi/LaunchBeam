@@ -135,14 +135,18 @@ export async function GET(
     const { data: project, error: projectError } = await admin
       .from("projects")
       .select("id,name")
-      .eq("slug", slug)
+      .eq("id", payload.projectId)
       .maybeSingle();
 
-    if (
-      projectError ||
-      !project ||
-      payload.projectId !== project.id
-    ) {
+    if (projectError) {
+      logServerError("subscriber_unsubscribe_project_lookup_failed", projectError);
+      return confirmationPage(
+        "Unable to verify unsubscribe link",
+        "Your request could not be completed. Please try again later.",
+        503,
+      );
+    }
+    if (!project) {
       return confirmationPage(
         "Waitlist not found",
         "This unsubscribe link does not belong to an active waitlist.",
@@ -240,20 +244,24 @@ export async function POST(
         400,
       );
     }
-    const { payload, slug, subscriberId } = link;
+    const { payload, subscriberId } = link;
 
     const admin = getSupabaseAdmin();
     const { data: project, error: projectError } = await admin
       .from("projects")
       .select("id,name")
-      .eq("slug", slug)
+      .eq("id", payload.projectId)
       .maybeSingle();
 
-    if (
-      projectError ||
-      !project ||
-      payload.projectId !== project.id
-    ) {
+    if (projectError) {
+      logServerError("subscriber_unsubscribe_project_lookup_failed", projectError);
+      return confirmationPage(
+        "Unable to unsubscribe",
+        "Your request could not be completed. Please try again later.",
+        503,
+      );
+    }
+    if (!project) {
       return confirmationPage(
         "Waitlist not found",
         "This unsubscribe link does not belong to an active waitlist.",

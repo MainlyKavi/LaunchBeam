@@ -244,7 +244,7 @@
 .editor-field input,
 .editor-field textarea,
 .editor-field select,
-.color-field > span:last-child,
+.color-field > div,
 .social-link-row input {
   width: 100%;
   min-width: 0;
@@ -316,6 +316,12 @@
   color: #73737a;
   background: #f2f2f4;
   cursor: pointer;
+}
+
+.asset-dropzone:has(input:focus-visible) {
+  border-color: #171719;
+  outline: 3px solid rgba(17, 17, 19, 0.3);
+  outline-offset: 3px;
 }
 
 .asset-dropzone > span {
@@ -442,12 +448,16 @@
 .color-field {
   display: grid;
   gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
   color: #303034;
   font-size: 0.7rem;
   font-weight: 600;
 }
 
-.color-field > span:last-child {
+.color-field > div {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
@@ -795,6 +805,11 @@
 
   .editor-preview-frame.is-mobile {
     padding: 8px;
+  }
+
+  .editor-preview-document {
+    width: 100%;
+    min-width: 0;
   }
 
   .editor-control-stack {

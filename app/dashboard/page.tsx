@@ -12,6 +12,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CopyLinkButton } from "@/app/dashboard/copy-link-button";
 import {
+  ProjectArchiveButton,
   ProjectDeleteButton,
   ProjectStatusButton,
 } from "@/app/dashboard/project-status-button";
@@ -27,7 +28,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { TEMPLATE_LABELS } from "@/lib/types";
 
 export const metadata: Metadata = {
-  title: "Projects | LaunchBeam",
+  title: "Projects",
   description: "Manage waitlists and review real demand signals.",
   robots: { index: false, follow: false },
 };
@@ -69,11 +70,10 @@ async function getProjectStats(
         p_project_id: projectId,
       }),
       supabase
-        .from("subscribers")
+        .from("events")
         .select("id", { count: "exact", head: true })
         .eq("project_id", projectId)
-        .eq("status", "subscribed")
-        .not("referred_by", "is", null),
+        .eq("event_type", "referral_signup"),
       supabase
         .from("subscribers")
         .select("id", { count: "exact", head: true })
@@ -268,6 +268,11 @@ function ProjectCard({
               published={isPublished}
             />
           ) : null}
+          <ProjectArchiveButton
+            archived={project.status === "archived"}
+            projectId={project.id}
+            projectName={project.name}
+          />
           <ProjectDeleteButton
             projectId={project.id}
             projectName={project.name}

@@ -6,6 +6,18 @@ export const metadata: Metadata = {
   title: "Terms | LaunchBeam",
   description: "Starter terms for the LaunchBeam waitlist platform.",
   alternates: { canonical: "/terms" },
+  openGraph: {
+    title: "Terms | LaunchBeam",
+    description: "Starter terms for the LaunchBeam waitlist platform.",
+    type: "website",
+    url: "/terms",
+    siteName: "LaunchBeam",
+  },
+  twitter: {
+    card: "summary",
+    title: "Terms | LaunchBeam",
+    description: "Starter terms for the LaunchBeam waitlist platform.",
+  },
 };
 
 export default function TermsPage() {

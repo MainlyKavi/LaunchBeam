@@ -6,6 +6,7 @@ import {
   type ProjectView,
   type RawProjectRow,
 } from "@/lib/project-records";
+import { logServerError } from "@/lib/logger";
 import { normalizeSlug } from "@/lib/normalize-slug";
 import { isReservedSlug } from "@/lib/reserved-slugs";
 
@@ -28,10 +29,20 @@ export async function getPublishedProject(
       .eq("slug", slug)
       .eq("status", "published")
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      logServerError("published_project_query_failed", error);
+      throw new Error("Published project lookup failed.");
+    }
+    if (!data) return null;
     return refreshProjectAssetUrls(mapProjectRow(data as RawProjectRow));
-  } catch {
-    return null;
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.message !== "Published project lookup failed."
+    ) {
+      logServerError("published_project_unavailable", error);
+    }
+    throw new Error("Published project data is temporarily unavailable.");
   }
 }
 
@@ -51,10 +62,20 @@ export async function getOwnedProject(
       .eq("id", projectId)
       .eq("owner_id", user.id)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      logServerError("owned_project_query_failed", error);
+      throw new Error("Owned project lookup failed.");
+    }
+    if (!data) return null;
     return refreshProjectAssetUrls(mapProjectRow(data as RawProjectRow));
-  } catch {
-    return null;
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.message !== "Owned project lookup failed."
+    ) {
+      logServerError("owned_project_unavailable", error);
+    }
+    throw new Error("Project data is temporarily unavailable.");
   }
 }
 
@@ -66,9 +87,13 @@ export async function getPublicSubscriberCount(projectId: string) {
       .select("id", { count: "exact", head: true })
       .eq("project_id", projectId)
       .eq("status", "subscribed");
-    if (error) return 0;
+    if (error) {
+      logServerError("subscriber_count_query_failed", error);
+      return undefined;
+    }
     return count ?? 0;
-  } catch {
-    return 0;
+  } catch (error) {
+    logServerError("subscriber_count_unavailable", error);
+    return undefined;
   }
 }

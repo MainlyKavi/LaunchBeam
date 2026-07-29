@@ -1,4 +1,5 @@
 import { apiError, apiJson } from "@/app/api/_shared";
+import { logServerError } from "@/lib/logger";
 import { normalizeSlug } from "@/lib/normalize-slug";
 import { isReservedSlug } from "@/lib/reserved-slugs";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
@@ -57,6 +58,7 @@ export async function GET(request: Request): Promise<Response> {
       .maybeSingle();
 
     if (error) {
+      logServerError("slug_availability_query_failed", error);
       return apiError(
         "service_unavailable",
         "URL availability cannot be checked right now.",
@@ -69,7 +71,8 @@ export async function GET(request: Request): Promise<Response> {
       available: data === null,
       ...(data ? { reason: "That public URL is already in use." } : {}),
     });
-  } catch {
+  } catch (error) {
+    logServerError("slug_availability_unavailable", error);
     return apiError(
       "service_unavailable",
       "URL availability cannot be checked right now.",

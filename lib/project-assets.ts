@@ -44,7 +44,12 @@ function projectAssetPath(
 export async function refreshProjectAssetUrls(
   project: ProjectView,
 ): Promise<ProjectView> {
-  const fields = ["logoUrl", "heroImageUrl"] as const;
+  const fields = [
+    "logoUrl",
+    "heroImageUrl",
+    "screenshotUrl",
+    "backgroundImageUrl",
+  ] as const;
   const admin = getSupabaseAdmin();
   const refreshed = await Promise.all(
     fields.map(async (field) => {

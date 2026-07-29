@@ -29,6 +29,8 @@ export type ProjectContent = {
   successMessage: string;
   logoUrl: string | null;
   heroImageUrl: string | null;
+  screenshotUrl: string | null;
+  backgroundImageUrl: string | null;
   socialLinks: Array<{
     platform: string;
     url: string;
@@ -130,8 +132,22 @@ export const DEFAULT_PROJECT_CONTENT: ProjectContent = {
   successMessage: "We'll let you know when Kimchi is ready.",
   logoUrl: null,
   heroImageUrl: null,
+  screenshotUrl: null,
+  backgroundImageUrl: null,
   socialLinks: [],
 };
+
+export function createStarterProjectContent(projectName: string): ProjectContent {
+  const name = projectName.trim().slice(0, 80) || "Your product";
+  return {
+    ...DEFAULT_PROJECT_CONTENT,
+    productName: name,
+    kicker: "Coming soon",
+    headline: `Be first to know when ${name} launches.`,
+    description: `Join the ${name} waitlist for product updates and early access.`,
+    successMessage: `We'll let you know when ${name} is ready.`,
+  };
+}
 
 export const TEMPLATE_THEME_PRESETS = {
   "minimal-beam": {
@@ -148,7 +164,7 @@ export const TEMPLATE_THEME_PRESETS = {
   kimchi: {
     background: "#e9e5ff",
     foreground: "#18151f",
-    muted: "#6f6879",
+    muted: "#625b6c",
     accent: "#5b4de4",
     font: "argentum",
     radius: 20,

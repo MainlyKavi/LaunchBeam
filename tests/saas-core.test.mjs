@@ -19,6 +19,20 @@ import {
   protectSpreadsheetFormula,
   rowsToCsv,
 } from "../lib/csv.ts";
+import {
+  contrastRatio,
+  isSafeOpaqueHexColor,
+  isSafePersistedHexColor,
+  readableTextColor,
+} from "../lib/color-contrast.ts";
+import {
+  DEFAULT_PROJECT_CONTENT,
+  createStarterProjectContent,
+} from "../lib/types.ts";
+import {
+  signToken,
+  verifySignedToken,
+} from "../lib/tokens.ts";
 
 test("slug normalization and reserved routes enforce the public URL contract", () => {
   assert.equal(normalizeSlug("  My Launch!! -- 2026  "), "my-launch-2026");
@@ -139,6 +153,69 @@ test("CSV output escapes syntax and neutralizes spreadsheet formulas", () => {
   assert.match(csv, /"safe@example\.com","Normal","line one\nline two"\r\n$/);
 });
 
+test("starter content follows the project identity without changing Kimchi defaults", () => {
+  const starter = createStarterProjectContent("Orbit Notes");
+  assert.equal(starter.productName, "Orbit Notes");
+  assert.match(starter.headline, /Orbit Notes/);
+  assert.match(starter.description, /Orbit Notes/);
+  assert.equal(starter.logoUrl, null);
+  assert.equal(starter.heroImageUrl, null);
+  assert.equal(starter.screenshotUrl, null);
+  assert.equal(starter.backgroundImageUrl, null);
+  assert.equal(DEFAULT_PROJECT_CONTENT.productName, "Kimchi");
+  assert.match(DEFAULT_PROJECT_CONTENT.headline, /customer conversations/);
+});
+
+test("theme contrast stays measurable and solid buttons choose readable text", () => {
+  assert.ok((contrastRatio("#18151f", "#e9e5ff") ?? 0) >= 4.5);
+  assert.ok((contrastRatio("#625b6c", "#e9e5ff") ?? 0) >= 4.5);
+  assert.equal(isSafeOpaqueHexColor("#abc"), true);
+  assert.equal(isSafeOpaqueHexColor("#aabbcc"), true);
+  assert.equal(isSafeOpaqueHexColor("#abcd"), false);
+  assert.equal(isSafeOpaqueHexColor("#aabbccdd"), false);
+  assert.equal(isSafePersistedHexColor("#abcd"), true);
+  assert.equal(isSafePersistedHexColor("#aabbccdd"), true);
+  assert.equal(isSafePersistedHexColor("rgb(0 0 0)"), false);
+  assert.equal(readableTextColor("#9caeff"), "#000000");
+  assert.equal(readableTextColor("#171719"), "#ffffff");
+  assert.equal(contrastRatio("#fff", "#fff"), 1);
+  assert.equal(contrastRatio("not-a-color", "#fff"), null);
+});
+
+test("signed email tokens reject tampering, wrong purpose, and expiry", () => {
+  const previousSecret = process.env.EMAIL_TOKEN_SECRET;
+  process.env.EMAIL_TOKEN_SECRET =
+    "launchbeam-test-secret-is-longer-than-thirty-two-characters";
+  try {
+    const valid = signToken({
+      purpose: "unsubscribe",
+      projectId: "project-1",
+      subscriberId: "subscriber-1",
+      expiresAt: Date.now() + 60_000,
+    });
+    assert.equal(
+      verifySignedToken(valid, "unsubscribe")?.subscriberId,
+      "subscriber-1",
+    );
+    assert.equal(verifySignedToken(`${valid}x`, "unsubscribe"), null);
+    assert.equal(verifySignedToken(valid, "confirm"), null);
+
+    const expired = signToken({
+      purpose: "confirm",
+      projectId: "project-1",
+      subscriberId: "subscriber-1",
+      expiresAt: Date.now() - 1,
+    });
+    assert.equal(verifySignedToken(expired, "confirm"), null);
+  } finally {
+    if (previousSecret === undefined) {
+      delete process.env.EMAIL_TOKEN_SECRET;
+    } else {
+      process.env.EMAIL_TOKEN_SECRET = previousSecret;
+    }
+  }
+});
+
 test("project validation stays strict and Kimchi remains the universal fallback", async () => {
   const [validation, records, types, migration] = await Promise.all([
     readFile(new URL("../lib/validation/project.ts", import.meta.url), "utf8"),
@@ -154,6 +231,18 @@ test("project validation stays strict and Kimchi remains the universal fallback"
   assert.match(validation, /SAFE_PROTOCOLS\s*=\s*new Set\(\["http:", "https:"\]\)/);
   assert.match(validation, /templateId:\s*templateIdSchema\.default\("kimchi"\)/);
   assert.match(records, /return\s+TEMPLATE_IDS\.includes[\s\S]*?:\s*"kimchi";/);
+  assert.match(
+    validation,
+    /persistedProjectThemeSchema = createProjectThemeSchema\(\s*isSafePersistedHexColor/,
+  );
+  assert.match(
+    validation,
+    /projectThemeSchema = createProjectThemeSchema\(\s*isSafeOpaqueHexColor/,
+  );
+  assert.match(
+    records,
+    /persistedProjectThemeSchema\.safeParse\(row\.theme\)/,
+  );
   assert.match(types, /templateId:\s*"kimchi"\s+as const/);
   assert.match(migration, /template_id text not null default 'kimchi'/);
   assert.match(
@@ -436,4 +525,178 @@ test("production hardening upgrades existing databases without prototype state",
     assert.match(exportRoute, new RegExp(`"${column}"`));
   }
   assert.doesNotMatch(exportRoute, /"referral_url"/);
+});
+
+test("application integrity migration and routes preserve new invariants", async () => {
+  const [
+    migration,
+    editor,
+    unsubscribeRoute,
+    subscriberRoute,
+    assetsRoute,
+    analytics,
+    dashboard,
+  ] = await Promise.all([
+    readFile(
+      new URL(
+        "../supabase/migrations/0003_application_integrity.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL("../components/editor/project-editor.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/api/public/[slug]/unsubscribe/route.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/api/projects/[projectId]/subscribers/[subscriberId]/route.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/api/projects/[projectId]/assets/route.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(new URL("../lib/analytics-dashboard.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/dashboard/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(migration, /grant select, insert, update, delete[\s\S]*to service_role/);
+  assert.match(
+    migration,
+    /jsonb_set\(theme,\s*'\{muted\}',\s*'"#625b6c"'::jsonb\)[\s\S]*?where theme =[\s\S]*?"muted": "#6f6879"/,
+  );
+  assert.match(
+    migration,
+    /e\.event_type = 'referral_signup'[\s\S]*p_start is null/,
+  );
+  assert.match(migration, /notify pgrst, 'reload schema'/);
+  const subscriberPolicyStart = migration.indexOf(
+    'create policy "owners update subscribers"',
+  );
+  const subscriberPolicyEnd = migration.indexOf(
+    "-- Referral totals",
+    subscriberPolicyStart,
+  );
+  assert.ok(subscriberPolicyStart >= 0 && subscriberPolicyEnd > subscriberPolicyStart);
+  const subscriberPolicy = migration.slice(
+    subscriberPolicyStart,
+    subscriberPolicyEnd,
+  );
+  assert.match(subscriberPolicy, /for update[\s\S]*?to authenticated/);
+  assert.match(
+    subscriberPolicy,
+    /with check \(\s*status = 'unsubscribed'[\s\S]*?projects\.owner_id = \(select auth\.uid\(\)\)/,
+  );
+  assert.doesNotMatch(subscriberPolicy, /status = 'subscribed'/);
+  assert.match(editor, /saveQueueRef/);
+  assert.doesNotMatch(editor, /abortRef/);
+  assert.match(unsubscribeRoute, /\.eq\("id", payload\.projectId\)/);
+  assert.match(subscriberRoute, /z\.literal\("unsubscribed"\)/);
+  assert.doesNotMatch(subscriberRoute, /z\.enum\(\["subscribed"/);
+  assert.match(assetsRoute, /content\.data\.screenshotUrl/);
+  assert.match(assetsRoute, /content\.data\.backgroundImageUrl/);
+  assert.match(analytics, /\.eq\("event_type", "referral_signup"\)/);
+  assert.match(
+    analytics,
+    /truncated:\s*events\.length >= MAXIMUM_EVENT_ROWS\s*\|\|\s*subscribers\.length >= MAXIMUM_SUBSCRIBER_ROWS/,
+  );
+  assert.match(
+    dashboard,
+    /\.from\("events"\)[\s\S]*?\.eq\("event_type", "referral_signup"\)/,
+  );
+  assert.doesNotMatch(
+    dashboard,
+    /\.not\("referred_by", "is", null\)/,
+  );
+});
+
+test("project archive and restore stay owner-scoped and reversible", async () => {
+  const [archiveRoute, publishRoute, statusButtons, dashboard] =
+    await Promise.all([
+      readFile(
+        new URL(
+          "../app/api/projects/[projectId]/archive/route.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/api/projects/[projectId]/publish/route.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/dashboard/project-status-button.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(new URL("../app/dashboard/page.tsx", import.meta.url), "utf8"),
+    ]);
+
+  assert.match(archiveRoute, /MAXIMUM_ARCHIVE_BODY_BYTES = 1_024/);
+  assert.match(
+    archiveRoute,
+    /archiveActionSchema[\s\S]*?archive:\s*z\.boolean\(\)[\s\S]*?\.strict\(\)/,
+  );
+  assert.match(
+    archiveRoute,
+    /readJsonBody\(request,\s*MAXIMUM_ARCHIVE_BODY_BYTES\)/,
+  );
+  assert.match(archiveRoute, /getSupabaseAdmin\(\)/);
+  assert.ok(
+    (archiveRoute.match(/\.eq\("owner_id", user\.id\)/g) ?? []).length >= 2,
+    "both ownership lookup and admin mutation must remain owner-scoped",
+  );
+  assert.match(
+    archiveRoute,
+    /currentProject\.status === "draft"[\s\S]*?currentProject\.status === "published"/,
+  );
+  assert.match(
+    archiveRoute,
+    /currentProject\.status === "archived"/,
+  );
+  assert.match(
+    archiveRoute,
+    /action\.data\.archive \? "archived" : "draft"/,
+  );
+  assert.match(
+    archiveRoute,
+    /\.eq\("status", currentProject\.status\)/,
+  );
+  assert.match(
+    archiveRoute,
+    /revalidatePath\(`\/\$\{updatedProject\.slug\}`\)/,
+  );
+  assert.match(
+    publishRoute,
+    /currentProject\.status === "archived"[\s\S]*?"project_archived"/,
+  );
+  assert.match(
+    statusButtons,
+    /window\.confirm\([\s\S]*?public waitlist will be unavailable/,
+  );
+  assert.match(
+    statusButtons,
+    /fetch\(`\/api\/projects\/\$\{projectId\}\/archive`/,
+  );
+  assert.match(statusButtons, /aria-busy=\{submitting\}/);
+  assert.match(statusButtons, /role="alert"/);
+  assert.match(dashboard, /<ProjectArchiveButton/);
 });

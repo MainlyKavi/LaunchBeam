@@ -45,10 +45,18 @@ export async function GET(
     const { data: project, error: projectError } = await admin
       .from("projects")
       .select("id,name")
-      .eq("slug", slug)
+      .eq("id", guardPayload.projectId)
       .maybeSingle();
 
-    if (projectError || !project) {
+    if (projectError) {
+      logServerError("subscriber_confirmation_project_lookup_failed", projectError);
+      return confirmationPage(
+        "Unable to confirm",
+        "Confirmation is temporarily unavailable. Please try again later.",
+        503,
+      );
+    }
+    if (!project) {
       return confirmationPage(
         "Waitlist not found",
         "This waitlist is no longer available.",
@@ -56,14 +64,6 @@ export async function GET(
       );
     }
     projectId = project.id;
-    if (guardPayload.projectId !== project.id) {
-      return confirmationPage(
-        "Confirmation link invalid",
-        "This confirmation link does not belong to this waitlist.",
-        400,
-      );
-    }
-
     const { data, error } = await admin.rpc(
       "confirm_waitlist_subscription",
       {

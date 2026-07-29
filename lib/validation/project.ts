@@ -1,11 +1,14 @@
 import { z } from "zod";
 import {
+  contrastRatio,
+  isSafeOpaqueHexColor,
+  isSafePersistedHexColor,
+} from "@/lib/color-contrast";
+import {
   APPROVED_FONTS,
   TEMPLATE_IDS,
 } from "@/lib/types";
 
-const SAFE_COLOR_PATTERN =
-  /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
 const SAFE_PROTOCOLS = new Set(["http:", "https:"]);
 
 function hasSafeProtocol(value: string) {
@@ -41,6 +44,8 @@ export const projectContentSchema = z
     successMessage: z.string().trim().min(1).max(240),
     logoUrl: nullableUrlSchema,
     heroImageUrl: nullableUrlSchema,
+    screenshotUrl: nullableUrlSchema.default(null),
+    backgroundImageUrl: nullableUrlSchema.default(null),
     socialLinks: z
       .array(
         z
@@ -54,22 +59,74 @@ export const projectContentSchema = z
   })
   .strict();
 
-export const projectThemeSchema = z
-  .object({
-    background: z.string().regex(SAFE_COLOR_PATTERN, "Use a safe hex color."),
-    foreground: z.string().regex(SAFE_COLOR_PATTERN, "Use a safe hex color."),
-    muted: z.string().regex(SAFE_COLOR_PATTERN, "Use a safe hex color."),
-    accent: z.string().regex(SAFE_COLOR_PATTERN, "Use a safe hex color."),
-    font: z.enum(APPROVED_FONTS),
-    radius: z.coerce
-      .number()
-      .finite()
-      .transform((value) => Math.max(0, Math.min(36, Math.round(value)))),
-    alignment: z.enum(["left", "center"]),
-    buttonStyle: z.enum(["solid", "outline", "soft", "glass"]),
-    animation: z.enum(["none", "subtle", "expressive"]),
-  })
-  .strict();
+function createProjectThemeSchema(
+  isSafeColor: (value: string) => boolean,
+) {
+  const safeColorSchema = z
+    .string()
+    .refine(isSafeColor, "Use a safe hex color.");
+
+  return z
+    .object({
+      background: safeColorSchema,
+      foreground: safeColorSchema,
+      muted: safeColorSchema,
+      accent: safeColorSchema,
+      font: z.enum(APPROVED_FONTS),
+      radius: z.coerce
+        .number()
+        .finite()
+        .transform((value) => Math.max(0, Math.min(36, Math.round(value)))),
+      alignment: z.enum(["left", "center"]),
+      buttonStyle: z.enum(["solid", "outline", "soft", "glass"]),
+      animation: z.enum(["none", "subtle", "expressive"]),
+    })
+    .strict();
+}
+
+// Stored themes may contain the safe 4/8-digit hex colors accepted by earlier
+// releases. Preserve those values on reads; stricter accessibility rules apply
+// only when a project is created or updated.
+export const persistedProjectThemeSchema = createProjectThemeSchema(
+  isSafePersistedHexColor,
+);
+
+export const projectThemeSchema = createProjectThemeSchema(
+  isSafeOpaqueHexColor,
+)
+  .superRefine((theme, context) => {
+    const foregroundContrast = contrastRatio(
+      theme.foreground,
+      theme.background,
+    );
+    if (foregroundContrast !== null && foregroundContrast < 4.5) {
+      context.addIssue({
+        code: "custom",
+        path: ["foreground"],
+        message: "Foreground and background colors need stronger contrast.",
+      });
+    }
+
+    const mutedContrast = contrastRatio(theme.muted, theme.background);
+    if (mutedContrast !== null && mutedContrast < 4.5) {
+      context.addIssue({
+        code: "custom",
+        path: ["muted"],
+        message: "Muted text and background colors need stronger contrast.",
+      });
+    }
+
+    if (
+      (theme.buttonStyle === "outline" || theme.buttonStyle === "soft") &&
+      (contrastRatio(theme.accent, theme.background) ?? 0) < 4.5
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["accent"],
+        message: "Accent and background colors need stronger contrast.",
+      });
+    }
+  });
 
 export const projectSettingsSchema = z
   .object({

@@ -31,7 +31,7 @@ type ServerSupabaseClient = Awaited<
 >;
 
 const ANALYTICS_PAGE_SIZE = 1_000;
-const MAXIMUM_PAGE_VIEW_ROWS = 10_000;
+const MAXIMUM_EVENT_ROWS = 10_000;
 const MAXIMUM_SUBSCRIBER_ROWS = 5_000;
 
 export type AnalyticsDatum = { label: string; value: number };
@@ -44,6 +44,8 @@ export type ProjectAnalytics = {
   confirmedSubscribers: number;
   conversionRate: number;
   referralSignups: number;
+  referralVisits: number;
+  shareClicks: number;
   referralRate: number;
   signupSeries: AnalyticsDatum[];
   visitorSeries: AnalyticsDatum[];
@@ -164,7 +166,7 @@ function createSeries(
   return buckets.map(({ label, value }) => ({ label, value }));
 }
 
-async function fetchPageViews(
+async function fetchEvents(
   supabase: ServerSupabaseClient,
   projectId: string,
   start: string | null,
@@ -172,12 +174,12 @@ async function fetchPageViews(
   const rows: EventRow[] = [];
   for (
     let offset = 0;
-    offset < MAXIMUM_PAGE_VIEW_ROWS;
+    offset < MAXIMUM_EVENT_ROWS;
     offset += ANALYTICS_PAGE_SIZE
   ) {
     const finalRow = Math.min(
       offset + ANALYTICS_PAGE_SIZE - 1,
-      MAXIMUM_PAGE_VIEW_ROWS - 1,
+      MAXIMUM_EVENT_ROWS - 1,
     );
     let request = supabase
       .from("events")
@@ -185,7 +187,6 @@ async function fetchPageViews(
         "event_type,session_id,referrer,country,device_type,metadata,created_at",
       )
       .eq("project_id", projectId)
-      .eq("event_type", "page_view")
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .range(offset, finalRow);
@@ -255,7 +256,7 @@ export async function getProjectAnalytics(
     previousResult,
     topReferrersResult,
   ] = await Promise.all([
-    fetchPageViews(supabase, projectId, start),
+    fetchEvents(supabase, projectId, start),
     fetchSubscribers(supabase, projectId, start),
     supabase.rpc("get_project_analytics_totals", {
       p_project_id: projectId,
@@ -270,11 +271,10 @@ export async function getProjectAnalytics(
       .eq("project_id", projectId)
       .eq("status", "subscribed"),
     supabase
-      .from("subscribers")
+      .from("events")
       .select("id", { count: "exact", head: true })
       .eq("project_id", projectId)
-      .eq("status", "subscribed")
-      .not("referred_by", "is", null),
+      .eq("event_type", "referral_signup"),
     supabase
       .from("subscribers")
       .select("id", { count: "exact", head: true })
@@ -314,6 +314,15 @@ export async function getProjectAnalytics(
   const pageViewEvents = events.filter(
     (event) => event.event_type === "page_view",
   );
+  const referralSignupEvents = events.filter(
+    (event) => event.event_type === "referral_signup",
+  );
+  const referralVisits = events.filter(
+    (event) => event.event_type === "referral_visit",
+  ).length;
+  const shareClicks = events.filter(
+    (event) => event.event_type === "share_click",
+  ).length;
   const validSubscribers = subscribers.filter(
     (subscriber) => subscriber.status !== "unsubscribed",
   );
@@ -341,8 +350,7 @@ export async function getProjectAnalytics(
     : confirmedSubscriberRows.length;
   const referralSignups = rangeTotals
     ? Math.max(0, Number(rangeTotals.referral_signups))
-    : confirmedSubscriberRows.filter((subscriber) => subscriber.referred_by)
-        .length;
+    : referralSignupEvents.length;
   const allUniqueVisitors = Math.max(
     0,
     Number(uniqueVisitorsResult.data ?? 0),
@@ -376,6 +384,8 @@ export async function getProjectAnalytics(
     confirmedSubscribers,
     conversionRate,
     referralSignups,
+    referralVisits,
+    shareClicks,
     referralRate,
     signupSeries: createSeries(validSubscribers, range),
     visitorSeries: createSeries(pageViewEvents, range),
@@ -395,9 +405,7 @@ export async function getProjectAnalytics(
       previousSignups: previousResult.count ?? 0,
     }),
     truncated:
-      (rangeTotals
-        ? pageViews > pageViewEvents.length
-        : pageViewEvents.length >= MAXIMUM_PAGE_VIEW_ROWS) ||
+      events.length >= MAXIMUM_EVENT_ROWS ||
       subscribers.length >= MAXIMUM_SUBSCRIBER_ROWS,
   };
 }

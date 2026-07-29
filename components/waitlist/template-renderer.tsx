@@ -3,6 +3,7 @@
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Copy, ExternalLink, MessageCircle, Share2 } from "lucide-react";
+import { readableTextColor } from "@/lib/color-contrast";
 import type {
   ProjectContent,
   ProjectSettings,
@@ -74,8 +75,8 @@ function themesMatch(left: ProjectTheme, right: ProjectTheme) {
   );
 }
 
-function getSessionId() {
-  const key = "launchbeam-visitor";
+function getSessionId(projectId: string) {
+  const key = `launchbeam-visitor:${projectId}`;
   try {
     const existing = window.localStorage.getItem(key);
     if (existing && /^[a-zA-Z0-9_-]{16,80}$/.test(existing)) return existing;
@@ -185,7 +186,7 @@ export function TemplateRenderer({
       if (mode !== "public") return;
       const payload = JSON.stringify({
         eventType,
-        sessionId: getSessionId(),
+        sessionId: getSessionId(project.id),
         referralCode,
         metadata,
       });
@@ -204,7 +205,7 @@ export function TemplateRenderer({
         keepalive: true,
       });
     },
-    [campaignParameters.referralCode, mode, project.slug],
+    [campaignParameters.referralCode, mode, project.id, project.slug],
   );
 
   useEffect(() => {
@@ -271,7 +272,7 @@ export function TemplateRenderer({
               : undefined,
             turnstileToken,
             referralCode: campaignParameters.referralCode,
-            sessionId: getSessionId(),
+            sessionId: getSessionId(project.id),
             utmSource: campaignParameters.utmSource,
             utmMedium: campaignParameters.utmMedium,
             utmCampaign: campaignParameters.utmCampaign,
@@ -338,8 +339,14 @@ export function TemplateRenderer({
     "--waitlist-fg": renderedProject.theme.foreground,
     "--waitlist-muted": renderedProject.theme.muted,
     "--waitlist-accent": renderedProject.theme.accent,
+    "--waitlist-accent-text": readableTextColor(
+      renderedProject.theme.accent,
+    ),
     "--waitlist-radius": `${renderedProject.theme.radius}px`,
     "--waitlist-align": renderedProject.theme.alignment,
+    "--waitlist-background-image": renderedProject.content.backgroundImageUrl
+      ? `url(${JSON.stringify(renderedProject.content.backgroundImageUrl)})`
+      : "none",
   } as CSSProperties;
 
   const frameProps: TemplateFrameProps = {
@@ -423,13 +430,15 @@ function ProjectImage({
   project: WaitlistProject;
   framed?: boolean;
 }) {
-  if (project.content.heroImageUrl) {
+  const imageUrl =
+    project.content.screenshotUrl ?? project.content.heroImageUrl;
+  if (imageUrl) {
     return (
       <div className={`waitlist-product-visual ${framed ? "is-framed" : ""}`}>
         {/* User-controlled URLs are sanitized before storage. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={project.content.heroImageUrl}
+          src={imageUrl}
           alt={`${project.name} product preview`}
         />
       </div>
@@ -476,7 +485,7 @@ function Footer({ project }: { project: WaitlistProject }) {
         ))}
       </div>
       <a href="/" target="_blank" rel="noreferrer">
-        Powered by LaunchBeam
+        Made with LaunchBeam
       </a>
     </footer>
   );
@@ -497,7 +506,8 @@ function MinimalBeamTemplate(props: TemplateFrameProps) {
           <HeroCopy project={props.project} />
           <div className="waitlist-signup-panel">{props.signup}</div>
         </section>
-        {props.project.content.heroImageUrl ? (
+        {props.project.content.screenshotUrl ||
+        props.project.content.heroImageUrl ? (
           <ProjectImage project={props.project} framed />
         ) : null}
         <Footer project={props.project} />
@@ -521,7 +531,8 @@ function KimchiTemplate(props: TemplateFrameProps) {
         <Brand project={props.project} />
         <section className="kimchi-hero">
           <HeroCopy project={props.project} />
-          {props.project.content.heroImageUrl ? (
+          {props.project.content.screenshotUrl ||
+          props.project.content.heroImageUrl ? (
             <ProjectImage project={props.project} />
           ) : null}
           <div className="waitlist-signup-panel glass-panel">{props.signup}</div>
@@ -636,6 +647,8 @@ function SignupForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const isDark = project.templateId === "darkrai";
+  const statusDescription = message ? "waitlist-form-status" : undefined;
+  const invalid = state === "error" ? true : undefined;
   return (
     <form className="public-signup-form" onSubmit={onSubmit} noValidate>
       {project.settings.collectName ? (
@@ -649,6 +662,8 @@ function SignupForm({
             value={name}
             onChange={(event) => onName(event.target.value)}
             placeholder="Your name"
+            aria-describedby={statusDescription}
+            aria-invalid={invalid}
           />
         </label>
       ) : null}
@@ -664,7 +679,8 @@ function SignupForm({
           value={email}
           onChange={(event) => onEmail(event.target.value)}
           placeholder="you@example.com"
-          aria-describedby={message ? "waitlist-form-status" : undefined}
+          aria-describedby={statusDescription}
+          aria-invalid={invalid}
         />
       </label>
       {project.settings.customQuestion ? (
@@ -677,6 +693,8 @@ function SignupForm({
             value={customAnswer}
             onChange={(event) => onCustomAnswer(event.target.value)}
             placeholder="Your answer"
+            aria-describedby={statusDescription}
+            aria-invalid={invalid}
           />
         </label>
       ) : null}

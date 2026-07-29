@@ -1,6 +1,12 @@
 "use client";
 
-import { EyeOff, Globe2, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  EyeOff,
+  Globe2,
+  Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -173,6 +179,89 @@ export function ProjectDeleteButton({
           id={`project-delete-error-${projectId}`}
           role="alert"
         >
+          {error}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+export function ProjectArchiveButton({
+  archived,
+  projectId,
+  projectName,
+}: {
+  archived: boolean;
+  projectId: string;
+  projectName: string;
+}) {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const actionLabel = archived ? "Restore" : "Archive";
+  const errorId = `project-archive-error-${projectId}`;
+
+  async function updateArchiveState() {
+    if (
+      !archived &&
+      !window.confirm(
+        `Archive ${projectName}? Its public waitlist will be unavailable until you restore it.`,
+      )
+    ) {
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/archive`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ archive: !archived }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        setError(
+          getResponseMessage(payload) ??
+            `LaunchBeam could not ${actionLabel.toLowerCase()} this project.`,
+        );
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError(
+        `LaunchBeam could not ${actionLabel.toLowerCase()} this project.`,
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        className="db-secondary-button"
+        type="button"
+        disabled={submitting}
+        aria-busy={submitting}
+        aria-describedby={error ? errorId : undefined}
+        onClick={updateArchiveState}
+      >
+        {archived ? (
+          <ArchiveRestore aria-hidden="true" />
+        ) : (
+          <Archive aria-hidden="true" />
+        )}
+        {submitting
+          ? archived
+            ? "Restoring..."
+            : "Archiving..."
+          : actionLabel}
+      </button>
+      {error ? (
+        <span className="sr-only" id={errorId} role="alert">
           {error}
         </span>
       ) : null}

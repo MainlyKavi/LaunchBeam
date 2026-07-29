@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import { LandingPage } from "./landing-page";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function Home() {
   let isAuthenticated = false;

@@ -48,6 +48,21 @@ type ProjectStatus = "draft" | "published" | "archived";
 type EditorTab = "content" | "design" | "settings";
 type PreviewMode = "desktop" | "mobile";
 type SaveState = "idle" | "saving" | "saved" | "error";
+type AssetFieldName =
+  | "logoUrl"
+  | "heroImageUrl"
+  | "screenshotUrl"
+  | "backgroundImageUrl";
+
+const assetKindByField: Record<
+  AssetFieldName,
+  "logo" | "hero" | "screenshot" | "background"
+> = {
+  logoUrl: "logo",
+  heroImageUrl: "hero",
+  screenshotUrl: "screenshot",
+  backgroundImageUrl: "background",
+};
 
 export type EditableProject = WaitlistProject & {
   status: ProjectStatus;
@@ -139,9 +154,8 @@ export function ProjectEditor({
   const [deleteState, setDeleteState] = useState<"idle" | "working" | "error">(
     "idle",
   );
-  const [uploadingField, setUploadingField] = useState<
-    "logoUrl" | "heroImageUrl" | null
-  >(null);
+  const [uploadingField, setUploadingField] =
+    useState<AssetFieldName | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [history, setHistory] = useState<EditorSnapshot[]>([
     snapshot(initialProject),
@@ -151,7 +165,8 @@ export function ProjectEditor({
     snapshotKey(snapshot(initialProject)),
   );
   const requestVersionRef = useRef(0);
-  const abortRef = useRef<AbortController | null>(null);
+  const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const editorClosedRef = useRef(false);
   const autosaveTimerRef = useRef<number | null>(null);
   const latestSnapshotKeyRef = useRef(
     snapshotKey(snapshot(initialProject)),
@@ -171,6 +186,8 @@ export function ProjectEditor({
       const retainedUrls = new Set([
         savedProject.content.logoUrl,
         savedProject.content.heroImageUrl,
+        savedProject.content.screenshotUrl,
+        savedProject.content.backgroundImageUrl,
       ]);
       const candidates = [
         ...new Set(
@@ -233,67 +250,79 @@ export function ProjectEditor({
   );
 
   const persistSnapshot = useCallback(
-    async (payload: EditorSnapshot): Promise<EditableProject | null> => {
+    (payload: EditorSnapshot): Promise<EditableProject | null> => {
       if (autosaveTimerRef.current !== null) {
         window.clearTimeout(autosaveTimerRef.current);
         autosaveTimerRef.current = null;
       }
       const version = ++requestVersionRef.current;
-      setSaveState("saving");
-      setSaveMessage("");
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
+      const execute = async (): Promise<EditableProject | null> => {
+        if (
+          editorClosedRef.current ||
+          version !== requestVersionRef.current
+        ) {
+          return null;
+        }
+        setSaveState("saving");
+        setSaveMessage("");
 
-      try {
-        const response = await fetch(`/api/projects/${project.id}`, {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-        const body = (await response.json()) as {
-          error?: string;
-          project?: EditableProject;
-        };
-        if (!response.ok || !body.project) {
-          throw new Error(body.error || "Unable to save these changes.");
-        }
-        if (version !== requestVersionRef.current) return null;
+        try {
+          const response = await fetch(`/api/projects/${project.id}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const body = (await response.json()) as {
+            error?: string;
+            project?: EditableProject;
+          };
+          if (!response.ok || !body.project) {
+            throw new Error(body.error || "Unable to save these changes.");
+          }
+          if (version !== requestVersionRef.current) return null;
 
-        const payloadKey = snapshotKey(payload);
-        const savedKey = snapshotKey(snapshot(body.project));
-        const hasNewerEdits = latestSnapshotKeyRef.current !== payloadKey;
-        if (!hasNewerEdits) {
-          latestSnapshotKeyRef.current = savedKey;
+          const payloadKey = snapshotKey(payload);
+          const savedKey = snapshotKey(snapshot(body.project));
+          const hasNewerEdits = latestSnapshotKeyRef.current !== payloadKey;
+          if (!hasNewerEdits) {
+            latestSnapshotKeyRef.current = savedKey;
+          }
+          setLastSavedKey(savedKey);
+          setProject((current) =>
+            snapshotKey(snapshot(current)) === payloadKey
+              ? body.project!
+              : {
+                  ...current,
+                  status: body.project!.status,
+                  updatedAt: body.project!.updatedAt,
+                  subscriberCount: body.project!.subscriberCount,
+                },
+          );
+          setSaveState("saved");
+          if (!hasNewerEdits) {
+            void cleanupReplacedAssets(body.project);
+          }
+          return hasNewerEdits ? null : body.project;
+        } catch (error) {
+          if (version !== requestVersionRef.current) return null;
+          setSaveState("error");
+          setSaveMessage(
+            error instanceof Error
+              ? error.message
+              : "Unable to save these changes.",
+          );
+          return null;
         }
-        setLastSavedKey(savedKey);
-        setProject((current) =>
-          snapshotKey(snapshot(current)) === payloadKey
-            ? body.project!
-            : {
-                ...current,
-                status: body.project!.status,
-                updatedAt: body.project!.updatedAt,
-                subscriberCount: body.project!.subscriberCount,
-              },
-        );
-        setSaveState("saved");
-        if (!hasNewerEdits) {
-          void cleanupReplacedAssets(body.project);
-        }
-        return hasNewerEdits ? null : body.project;
-      } catch (error) {
-        if (controller.signal.aborted) return null;
-        if (version !== requestVersionRef.current) return null;
-        setSaveState("error");
-        setSaveMessage(
-          error instanceof Error
-            ? error.message
-            : "Unable to save these changes.",
-        );
-        return null;
-      }
+      };
+
+      const queued = saveQueueRef.current
+        .catch(() => undefined)
+        .then(execute);
+      saveQueueRef.current = queued.then(
+        () => undefined,
+        () => undefined,
+      );
+      return queued;
     },
     [cleanupReplacedAssets, project.id],
   );
@@ -429,10 +458,15 @@ export function ProjectEditor({
 
     setDeleteState("working");
     setSaveMessage("");
-    abortRef.current?.abort();
+    editorClosedRef.current = true;
     requestVersionRef.current += 1;
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
 
     try {
+      await saveQueueRef.current;
       const response = await fetch(`/api/projects/${project.id}`, {
         method: "DELETE",
       });
@@ -445,7 +479,9 @@ export function ProjectEditor({
       router.replace("/dashboard");
       router.refresh();
     } catch (error) {
+      editorClosedRef.current = false;
       setDeleteState("error");
+      setSaveAttempt((current) => current + 1);
       setSaveMessage(
         error instanceof Error
           ? error.message
@@ -456,7 +492,7 @@ export function ProjectEditor({
 
   async function uploadAsset(
     event: ChangeEvent<HTMLInputElement>,
-    field: "logoUrl" | "heroImageUrl",
+    field: AssetFieldName,
   ) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -468,7 +504,7 @@ export function ProjectEditor({
     try {
       const formData = new FormData();
       formData.set("file", file);
-      formData.set("field", field === "logoUrl" ? "logo" : "hero");
+      formData.set("field", assetKindByField[field]);
       const uploadedUrl = await uploadProjectAsset(
         project.id,
         formData,
@@ -496,7 +532,7 @@ export function ProjectEditor({
     }
   }
 
-  function removeAsset(field: "logoUrl" | "heroImageUrl") {
+  function removeAsset(field: AssetFieldName) {
     const currentUrl = project.content[field];
     if (!currentUrl) return;
     if (currentUrl.includes("/storage/v1/object/")) {
@@ -765,13 +801,13 @@ function ContentControls({
 }: {
   project: EditableProject;
   updateProject: (updater: (current: EditorSnapshot) => EditorSnapshot) => void;
-  uploadingField: "logoUrl" | "heroImageUrl" | null;
+  uploadingField: AssetFieldName | null;
   uploadProgress: number | null;
   onUpload: (
     event: ChangeEvent<HTMLInputElement>,
-    field: "logoUrl" | "heroImageUrl",
+    field: AssetFieldName,
   ) => void;
-  onRemove: (field: "logoUrl" | "heroImageUrl") => void;
+  onRemove: (field: AssetFieldName) => void;
 }) {
   const updateContent = <Key extends keyof ProjectContent>(
     key: Key,
@@ -886,12 +922,34 @@ function ContentControls({
         onRemove={onRemove}
       />
       <AssetField
-        label="Hero image or product screenshot"
+        label="Hero image"
         field="heroImageUrl"
         currentUrl={project.content.heroImageUrl}
         uploading={uploadingField === "heroImageUrl"}
         uploadProgress={
           uploadingField === "heroImageUrl" ? uploadProgress : null
+        }
+        onUpload={onUpload}
+        onRemove={onRemove}
+      />
+      <AssetField
+        label="Product screenshot"
+        field="screenshotUrl"
+        currentUrl={project.content.screenshotUrl}
+        uploading={uploadingField === "screenshotUrl"}
+        uploadProgress={
+          uploadingField === "screenshotUrl" ? uploadProgress : null
+        }
+        onUpload={onUpload}
+        onRemove={onRemove}
+      />
+      <AssetField
+        label="Background image"
+        field="backgroundImageUrl"
+        currentUrl={project.content.backgroundImageUrl}
+        uploading={uploadingField === "backgroundImageUrl"}
+        uploadProgress={
+          uploadingField === "backgroundImageUrl" ? uploadProgress : null
         }
         onUpload={onUpload}
         onRemove={onRemove}
@@ -913,7 +971,7 @@ function ContentControls({
           </button>
         </div>
         {project.content.socialLinks.map((link, index) => (
-          <div className="social-link-row" key={`${index}-${link.platform}`}>
+          <div className="social-link-row" key={index}>
             <input
               aria-label={`Social link ${index + 1} platform`}
               value={link.platform}
@@ -966,15 +1024,15 @@ function AssetField({
   onRemove,
 }: {
   label: string;
-  field: "logoUrl" | "heroImageUrl";
+  field: AssetFieldName;
   currentUrl: string | null;
   uploading: boolean;
   uploadProgress: number | null;
   onUpload: (
     event: ChangeEvent<HTMLInputElement>,
-    field: "logoUrl" | "heroImageUrl",
+    field: AssetFieldName,
   ) => void;
-  onRemove: (field: "logoUrl" | "heroImageUrl") => void;
+  onRemove: (field: AssetFieldName) => void;
 }) {
   return (
     <div className="asset-field">
@@ -1179,22 +1237,24 @@ function ColorField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="color-field">
-      <span>{label}</span>
-      <span>
+    <fieldset className="color-field">
+      <legend>{label}</legend>
+      <div>
         <input
+          aria-label={`${label} color picker`}
           type="color"
           value={value}
           onChange={(event) => onChange(event.target.value)}
         />
         <input
+          aria-label={`${label} hex value`}
           value={value}
-          maxLength={9}
+          maxLength={7}
           spellCheck={false}
           onChange={(event) => onChange(event.target.value)}
         />
-      </span>
-    </label>
+      </div>
+    </fieldset>
   );
 }
 

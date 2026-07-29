@@ -8,7 +8,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { NewProjectForm } from "./new-project-form";
 
 export const metadata: Metadata = {
-  title: "New project | LaunchBeam",
+  title: "New project",
   description: "Create a new LaunchBeam waitlist project.",
   robots: { index: false, follow: false },
 };

@@ -92,6 +92,7 @@ The version-controlled migrations are:
 ```text
 supabase/migrations/0001_launchbeam.sql
 supabase/migrations/0002_production_hardening.sql
+supabase/migrations/0003_application_integrity.sql
 ```
 
 Install the Supabase CLI using an official supported method. If this checkout
@@ -135,6 +136,10 @@ Together the migrations create and harden:
 - Owner-folder Storage policies for select, insert, update, and delete
 - A 5 MB upload limit for JPEG, PNG, WebP, and AVIF files
 - Reserved-slug enforcement for new writes and public reads
+- Explicit service-role grants and an owner policy that permits unsubscribe
+  updates without allowing direct resubscribe bypasses
+- Current project defaults, accessible legacy Kimchi theme backfill, and exact
+  referral-conversion totals
 - Exact range totals for analytics dashboards whose detailed chart rows are
   intentionally capped
 
@@ -512,7 +517,8 @@ days. The final score remains hidden until 100 unique visitors exist.
 
 ### Asset upload
 
-1. Upload a JPEG, PNG, WebP, or AVIF logo or hero image smaller than 5 MB.
+1. Upload a JPEG, PNG, WebP, or AVIF logo, hero image, product screenshot, or
+   background image smaller than 5 MB.
 2. Confirm the object path begins with the authenticated owner ID and project
    ID.
 3. Confirm the editor receives a signed URL and the public project renders the

@@ -13,7 +13,7 @@ import {
 import {
   projectContentSchema,
   projectSettingsSchema,
-  projectThemeSchema,
+  persistedProjectThemeSchema,
 } from "@/lib/validation/project";
 
 export type RawProjectRow = {
@@ -54,7 +54,7 @@ export function coerceTemplateId(value: string): TemplateId {
 
 export function mapProjectRow(row: RawProjectRow): ProjectView {
   const contentResult = projectContentSchema.safeParse(row.content);
-  const themeResult = projectThemeSchema.safeParse(row.theme);
+  const themeResult = persistedProjectThemeSchema.safeParse(row.theme);
   const settingsResult = projectSettingsSchema.safeParse(row.settings);
 
   return {

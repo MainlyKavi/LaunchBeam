@@ -71,6 +71,7 @@ export default async function ProjectSubscribersPage({
   if (sort === "newest") {
     request = request.order("created_at", { ascending: false });
   }
+  request = request.order("id", { ascending: true });
 
   const { data, count, error } = await request.range(from, to);
   if (error) throw new Error("Subscribers could not be loaded.");

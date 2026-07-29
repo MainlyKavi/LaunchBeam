@@ -7,6 +7,18 @@ export const metadata: Metadata = {
   description:
     "Starter privacy notice for the LaunchBeam waitlist platform.",
   alternates: { canonical: "/privacy" },
+  openGraph: {
+    title: "Privacy | LaunchBeam",
+    description: "Starter privacy notice for the LaunchBeam waitlist platform.",
+    type: "website",
+    url: "/privacy",
+    siteName: "LaunchBeam",
+  },
+  twitter: {
+    card: "summary",
+    title: "Privacy | LaunchBeam",
+    description: "Starter privacy notice for the LaunchBeam waitlist platform.",
+  },
 };
 
 export default function PrivacyPage() {

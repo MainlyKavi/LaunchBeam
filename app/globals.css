@@ -42,6 +42,25 @@
 
 * { box-sizing: border-box; }
 
+.skip-link {
+  position: fixed;
+  z-index: 1000;
+  top: 12px;
+  left: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: #ffffff;
+  background: #171719;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transform: translateY(-180%);
+  transition: transform 140ms ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 html { scroll-padding-top: 0; }
 
 section[id],

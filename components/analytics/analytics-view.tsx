@@ -30,6 +30,14 @@ export function AnalyticsView({
       label: "Referral signups",
       value: analytics.referralSignups.toLocaleString(),
     },
+    {
+      label: "Referral visits",
+      value: analytics.referralVisits.toLocaleString(),
+    },
+    {
+      label: "Share clicks",
+      value: analytics.shareClicks.toLocaleString(),
+    },
     { label: "Referral rate", value: `${analytics.referralRate.toFixed(1)}%` },
   ];
 

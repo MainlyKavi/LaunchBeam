@@ -1,14 +1,15 @@
 import { apiError, apiJson, firstValidationMessage, readJsonBody, requestErrorResponse } from "@/app/api/_shared";
 import { isEmailDeliveryConfigured } from "@/lib/email";
+import { logServerError } from "@/lib/logger";
 import { normalizeSlug } from "@/lib/normalize-slug";
 import { mapProjectRow, type RawProjectRow } from "@/lib/project-records";
 import { isReservedSlug } from "@/lib/reserved-slugs";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
-  DEFAULT_PROJECT_CONTENT,
   DEFAULT_PROJECT_SETTINGS,
   TEMPLATE_THEME_PRESETS,
+  createStarterProjectContent,
 } from "@/lib/types";
 import { projectCreateSchema } from "@/lib/validation/project";
 
@@ -79,6 +80,7 @@ export async function POST(request: Request): Promise<Response> {
       .maybeSingle();
 
     if (availabilityError) {
+      logServerError("project_slug_query_failed", availabilityError);
       return apiError(
         "service_unavailable",
         "Project creation is temporarily unavailable.",
@@ -100,7 +102,9 @@ export async function POST(request: Request): Promise<Response> {
         name: result.data.name,
         slug,
         template_id: result.data.templateId,
-        content: result.data.content ?? DEFAULT_PROJECT_CONTENT,
+        content:
+          result.data.content ??
+          createStarterProjectContent(result.data.name),
         theme:
           result.data.theme ??
           TEMPLATE_THEME_PRESETS[result.data.templateId],
@@ -119,6 +123,7 @@ export async function POST(request: Request): Promise<Response> {
           409,
         );
       }
+      logServerError("project_create_failed", error);
       return apiError(
         "project_create_failed",
         "We could not create the project. Please try again.",
@@ -128,6 +133,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return apiJson({ project: mapProjectRow(data as RawProjectRow) }, 201);
   } catch (error) {
+    logServerError("project_create_unavailable", error);
     return (
       requestErrorResponse(error) ??
       apiError(

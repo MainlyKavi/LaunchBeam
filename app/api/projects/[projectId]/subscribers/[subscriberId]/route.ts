@@ -3,8 +3,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { logServerError } from "@/lib/logger";
 
 const statusSchema = z.object({
-  status: z.enum(["subscribed", "unsubscribed"]),
-});
+  status: z.literal("unsubscribed"),
+}).strict();
 
 function json(body: Record<string, unknown>, status: number) {
   return Response.json(body, {

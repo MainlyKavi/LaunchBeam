@@ -37,8 +37,8 @@ export function SubscriberTable({
   }
 
   async function updateStatus(subscriber: SubscriberListItem) {
-    const nextStatus =
-      subscriber.status === "unsubscribed" ? "subscribed" : "unsubscribed";
+    if (subscriber.status === "unsubscribed") return;
+    const nextStatus = "unsubscribed" as const;
     setWorkingId(subscriber.id);
     setError("");
     try {
@@ -188,15 +188,15 @@ export function SubscriberTable({
                         )}
                         {copiedId === subscriber.id ? "Copied" : "Copy email"}
                       </button>
-                      <button
-                        type="button"
-                        disabled={workingId === subscriber.id}
-                        onClick={() => updateStatus(subscriber)}
-                      >
-                        {subscriber.status === "unsubscribed"
-                          ? "Resubscribe"
-                          : "Unsubscribe"}
-                      </button>
+                      {subscriber.status !== "unsubscribed" ? (
+                        <button
+                          type="button"
+                          disabled={workingId === subscriber.id}
+                          onClick={() => updateStatus(subscriber)}
+                        >
+                          Unsubscribe
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="danger"

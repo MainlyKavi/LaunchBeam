@@ -91,6 +91,14 @@ export async function POST(
     }
 
     const currentProject = mapProjectRow(currentRow as RawProjectRow);
+    if (currentProject.status === "archived") {
+      return apiError(
+        "project_archived",
+        "Restore this project before changing its publication state.",
+        409,
+      );
+    }
+
     if (action.data.publish) {
       if (isReservedSlug(currentProject.slug)) {
         return apiError(

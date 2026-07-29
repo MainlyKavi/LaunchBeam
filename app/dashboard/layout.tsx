@@ -14,6 +14,10 @@ import { LogoutButton } from "./logout-button";
 import "./dashboard.css";
 
 export const metadata: Metadata = {
+  title: {
+    default: "Projects | LaunchBeam",
+    template: "%s | LaunchBeam",
+  },
   robots: { index: false, follow: false },
 };
 
@@ -121,8 +125,15 @@ export default async function DashboardLayout({
 
   return (
     <div className="db-shell">
+      <a className="skip-link" href="#dashboard-content">
+        Skip to content
+      </a>
       <DashboardNavigation email={user.email ?? null} />
-      <div className="db-main">
+      <div
+        className="db-main"
+        id="dashboard-content"
+        tabIndex={-1}
+      >
         <div className="db-content">{children}</div>
       </div>
     </div>

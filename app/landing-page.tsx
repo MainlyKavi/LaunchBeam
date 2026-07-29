@@ -32,6 +32,32 @@ type PreviewMode = "desktop" | "mobile";
 type ButtonStyle = "solid" | "outline" | "soft";
 type AnalyticsTab = "overview" | "sources" | "referrals";
 
+const studioTabs = ["page", "design", "analytics"] as const;
+const analyticsTabs = ["overview", "sources", "referrals"] as const;
+
+function handleTabKeyDown<Tab extends string>(
+  event: ReactKeyboardEvent<HTMLButtonElement>,
+  tabs: readonly Tab[],
+  activeTab: Tab,
+  setActiveTab: (tab: Tab) => void,
+  idPrefix: string,
+) {
+  let nextIndex: number | null = null;
+  const activeIndex = tabs.indexOf(activeTab);
+  if (event.key === "ArrowRight") nextIndex = (activeIndex + 1) % tabs.length;
+  if (event.key === "ArrowLeft") {
+    nextIndex = (activeIndex - 1 + tabs.length) % tabs.length;
+  }
+  if (event.key === "Home") nextIndex = 0;
+  if (event.key === "End") nextIndex = tabs.length - 1;
+  if (nextIndex === null) return;
+
+  event.preventDefault();
+  const nextTab = tabs[nextIndex];
+  setActiveTab(nextTab);
+  document.getElementById(`${idPrefix}-${nextTab}`)?.focus();
+}
+
 const campaign = {
   startup: "Kimchi",
   slug: "kimchi",
@@ -307,7 +333,10 @@ export function LandingPage({
   }, []);
 
   return (
-    <main className="site-shell">
+    <div className="site-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <Navigation
         isScrolled={isScrolled}
         isMenuOpen={isMenuOpen}
@@ -317,14 +346,16 @@ export function LandingPage({
         accountHref={accountHref}
         accountLabel={accountLabel}
       />
-      <HeroSection accountHref={accountHref} accountLabel={accountLabel} />
-      <InsightsSection />
-      <FeaturesSection />
-      <PricingSection accountHref={accountHref} accountLabel={accountLabel} />
-      <FaqSection />
-      <FinalCta accountHref={accountHref} accountLabel={accountLabel} />
+      <main id="main-content" tabIndex={-1}>
+        <HeroSection accountHref={accountHref} accountLabel={accountLabel} />
+        <InsightsSection />
+        <FeaturesSection />
+        <PricingSection accountHref={accountHref} accountLabel={accountLabel} />
+        <FaqSection />
+        <FinalCta accountHref={accountHref} accountLabel={accountLabel} />
+      </main>
       <Footer isAuthenticated={isAuthenticated} />
-    </main>
+    </div>
   );
 }
 
@@ -471,18 +502,45 @@ function ProductStudio() {
               icon={MousePointer2}
               isActive={activeTab === "page"}
               onClick={() => setActiveTab("page")}
+              onKeyDown={(event) =>
+                handleTabKeyDown(
+                  event,
+                  studioTabs,
+                  activeTab,
+                  setActiveTab,
+                  "studio-tab",
+                )
+              }
             />
             <StudioTabButton
               label="Design"
               icon={LayoutTemplate}
               isActive={activeTab === "design"}
               onClick={() => setActiveTab("design")}
+              onKeyDown={(event) =>
+                handleTabKeyDown(
+                  event,
+                  studioTabs,
+                  activeTab,
+                  setActiveTab,
+                  "studio-tab",
+                )
+              }
             />
             <StudioTabButton
               label="Analytics"
               icon={BarChart3}
               isActive={activeTab === "analytics"}
               onClick={() => setActiveTab("analytics")}
+              onKeyDown={(event) =>
+                handleTabKeyDown(
+                  event,
+                  studioTabs,
+                  activeTab,
+                  setActiveTab,
+                  "studio-tab",
+                )
+              }
             />
           </div>
 
@@ -637,11 +695,13 @@ function StudioTabButton({
   icon: Icon,
   isActive,
   onClick,
+  onKeyDown,
 }: {
   label: string;
   icon: LucideIcon;
   isActive: boolean;
   onClick: () => void;
+  onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
@@ -651,7 +711,9 @@ function StudioTabButton({
       aria-selected={isActive}
       aria-controls="studio-panel"
       className={isActive ? "is-active" : ""}
+      tabIndex={isActive ? 0 : -1}
       onClick={onClick}
+      onKeyDown={onKeyDown}
     >
       <Icon size={16} aria-hidden="true" />
       <span>{label}</span>
@@ -826,7 +888,7 @@ function InsightsSection() {
 
           <div className="analytics-panel">
             <div className="analytics-tabs" role="tablist" aria-label="Analytics details">
-              {(["overview", "sources", "referrals"] as AnalyticsTab[]).map((tab) => (
+              {analyticsTabs.map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -835,7 +897,17 @@ function InsightsSection() {
                   aria-selected={activeTab === tab}
                   aria-controls={`analytics-${tab}`}
                   className={activeTab === tab ? "is-active" : ""}
+                  tabIndex={activeTab === tab ? 0 : -1}
                   onClick={() => setActiveTab(tab)}
+                  onKeyDown={(event) =>
+                    handleTabKeyDown(
+                      event,
+                      analyticsTabs,
+                      activeTab,
+                      setActiveTab,
+                      "analytics-tab",
+                    )
+                  }
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>

@@ -280,11 +280,12 @@ export function NewProjectForm({ siteUrl }: NewProjectFormProps) {
               autoComplete="off"
               maxLength={80}
               placeholder="e.g. Kimchi"
+              aria-describedby="project-name-hint"
               required
               value={name}
               onChange={(event) => handleNameChange(event.target.value)}
             />
-            <span className="db-field-hint">
+            <span className="db-field-hint" id="project-name-hint">
               This is shown in your dashboard and waitlist metadata.
             </span>
           </div>
@@ -303,6 +304,10 @@ export function NewProjectForm({ siteUrl }: NewProjectFormProps) {
               maxLength={40}
               placeholder="e.g. kimchi"
               aria-describedby="slug-availability"
+              aria-invalid={
+                availability.kind === "unavailable" ||
+                availability.kind === "error"
+              }
               required
               value={slug}
               onChange={(event) => handleSlugChange(event.target.value)}

@@ -3,7 +3,7 @@
   --db-surface: #ffffff;
   --db-ink: #18181a;
   --db-muted: #6d6d73;
-  --db-faint: #98989e;
+  --db-faint: #68686e;
   --db-line: rgba(18, 18, 20, 0.1);
   --db-line-strong: rgba(18, 18, 20, 0.16);
   min-height: 100dvh;
@@ -67,11 +67,16 @@
 
 .db-sidebar-kicker {
   margin: 22px 10px 9px;
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.72);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.11em;
   text-transform: uppercase;
+}
+
+.db-sidebar :focus-visible,
+.db-mobile-menu-panel :focus-visible {
+  outline-color: #ffffff;
 }
 
 .db-nav {

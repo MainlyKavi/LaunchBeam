@@ -344,6 +344,8 @@ export async function DELETE(
       const referencedPaths = [
         pathFromSignedAssetUrl(content.data.logoUrl ?? ""),
         pathFromSignedAssetUrl(content.data.heroImageUrl ?? ""),
+        pathFromSignedAssetUrl(content.data.screenshotUrl ?? ""),
+        pathFromSignedAssetUrl(content.data.backgroundImageUrl ?? ""),
       ];
       if (referencedPaths.includes(requestedPath)) {
         return apiError(

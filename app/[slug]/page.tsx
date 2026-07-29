@@ -63,10 +63,20 @@ export default async function PublicWaitlistPage({
   const subscriberCount = project.settings.showSignupCount
     ? await getPublicSubscriberCount(project.id)
     : undefined;
+  const publicProject = {
+    id: project.id,
+    name: project.name,
+    slug: project.slug,
+    templateId: project.templateId,
+    content: project.content,
+    theme: project.theme,
+    settings: project.settings,
+    subscriberCount,
+  };
 
   return (
     <TemplateRenderer
-      project={{ ...project, subscriberCount }}
+      project={publicProject}
       mode="public"
       turnstileSiteKey={
         process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || null

@@ -256,7 +256,7 @@
 }
 
 .lb-auth-field-head span {
-  color: #8a8a90;
+  color: #626268;
   font-size: 10px;
 }
 
@@ -361,10 +361,14 @@
   margin-top: 34px;
   padding-top: 20px;
   border-top: 1px solid rgba(17, 17, 17, 0.09);
-  color: #919197;
+  color: #66666c;
   font-size: 10px;
   line-height: 1.55;
   text-align: center;
+}
+
+.lb-auth-story :focus-visible {
+  outline-color: #ffffff;
 }
 
 @media (max-width: 880px) {

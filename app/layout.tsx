@@ -16,7 +16,6 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase,
     title: TITLE,
     description: DESCRIPTION,
-    alternates: { canonical: "/" },
     icons: {
       icon: "/favicon.svg",
       shortcut: "/favicon.svg",
