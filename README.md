@@ -1,109 +1,40 @@
 # LaunchBeam
 
-LaunchBeam is a functional multi-tenant waitlist and demand-validation SaaS for
-early-stage founders. It preserves the original polished marketing site and
-Kimchi product demonstration while connecting authenticated projects to real
-Supabase data.
+**Build your waitlist. Validate demand. Launch with an audience.**
 
-## Product capabilities
+LaunchBeam is a responsive landing-page prototype for a no-code waitlist platform designed for startup founders.
 
-- Supabase email/password accounts with cookie-based sessions and protected
-  dashboard routes
-- Draft project creation, slug validation, autosaving editor, owner preview,
-  publishing, and unpublishing
-- Five shared responsive templates: Minimal Beam, Kimchi, Kevinora, Spotbeam,
-  and Darkrai
-- Public project pages at `/<slug>` with project metadata and a Kimchi default
-- Transaction-safe public signups with duplicate-safe positions
-- Project-scoped referral links, signed attribution cookies, referral counts,
-  and milestone progress
-- Optional subscriber email confirmation, welcome email, and signed
-  unsubscribe links through Resend
-- Real page-view, signup, referral, source, campaign, device, and available
-  country analytics
-- A deterministic Demand Score after 100 unique visitors
-- Subscriber search, filtering, status management, deletion, and safe CSV
-  export
-- Private Supabase Storage uploads for JPEG, PNG, WebP, and AVIF project assets
-- Cloudflare Turnstile validation and Upstash Redis rate limiting for public
-  endpoints
+## Features
 
-The interactive Kimchi campaign embedded in the marketing page remains clearly
-labelled sample data. Projects created by signed-in users use real subscribers,
-events, referrals, exports, and publishing state.
+- Interactive waitlist page builder
+- Custom themes, fonts, and branding
+- Startup-focused templates
+- Referral and analytics previews
+- Responsive mobile design
+- Accessible interactions and reduced-motion support
 
-## Architecture
+## Tech Stack
 
-- Next.js App Router and React for marketing, auth, dashboard, editor, preview,
-  public waitlists, and route handlers
-- Supabase Auth, Postgres, Row Level Security, RPC transactions, and Storage
-- Zod validation at server boundaries
-- Owner-scoped browser/server clients and a lazy server-only service-role client
-- Server-only Resend, Turnstile Siteverify, Upstash, and signed-token helpers
-- Shared template rendering across editor preview, owner preview, and public
-  pages
+- Next.js
+- React
+- TypeScript
+- Vite
+- Vinext
+- Tailwind CSS
 
-Anonymous clients can read only published projects. Public signup and analytics
-writes go through validated, rate-limited server endpoints; anonymous browsers
-cannot write directly to subscriber or event tables. The database migration is
-the final integrity layer for ownership, slug uniqueness, duplicate signups,
-position allocation, and referral credit.
-
-## Quick start
+## Run Locally
 
 ```bash
-npm ci
-```
-
-Copy `.env.example` to `.env.local`, configure Supabase, and apply
-all migrations under `supabase/migrations/`. Then run the native Next.js target:
-
-```bash
-npm run dev:vercel
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-The complete provider setup, migration, Auth URL configuration, Kimchi seed,
-deployment instructions, acceptance tests, and troubleshooting guide are in
-[docs/SETUP.md](docs/SETUP.md).
-
-## Scripts
-
-```bash
+git clone https://github.com/MainlyKavi/LaunchBeam.git
+cd LaunchBeam
+npm install
 npm run dev
-npm run build
-npm run start
-npm run dev:vercel
-npm run build:vercel
-npm run start:vercel
-npm run lint
-npm run typecheck
-npm test
-npm run seed:kimchi -- --owner-id YOUR_AUTH_USER_UUID
 ```
 
-- `dev:vercel`, `build:vercel`, and `start:vercel` are the canonical native
-  Next.js/Vercel SaaS commands.
-- `dev`, `build`, and `start` preserve the Vinext/Cloudflare Sites target used
-  by the existing landing-page workflow.
-- `seed:kimchi` safely creates the optional published Kimchi development
-  project for an explicit existing Supabase Auth owner. It never overwrites an
-  existing `kimchi` slug.
+## Current Status
 
-## External services
+LaunchBeam is currently a frontend prototype. Authentication, payments, database storage, publishing, and real email collection are not yet implemented.
 
-Production requires Supabase, a 32+ character `EMAIL_TOKEN_SECRET`, Cloudflare
-Turnstile, and Upstash Redis. Resend is required for welcome email and for any
-project that enables subscriber email confirmation.
+## Author
 
-External clients are initialized lazily so missing credentials do not break a
-build. Runtime behavior is intentionally stricter: public signup and analytics
-fail closed in production if their required security services are absent.
-
-## MVP boundaries
-
-LaunchBeam does not currently include billing, checkout, arbitrary custom HTML,
-arbitrary JavaScript or CSS, custom domains, email broadcasts, workflow
-automation, or a plugin marketplace. The schema and project model are designed
-so plans and additional delivery features can be introduced later.
+Created by [MainlyKavi](https://github.com/MainlyKavi).
