@@ -7,6 +7,7 @@ import type {
   RefObject,
 } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import Lenis from "lenis";
 import {
   ArrowRight,
   BarChart3,
@@ -221,6 +222,7 @@ export function LandingPage({
 }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const lenisRef = useRef<Lenis | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const accountHref = isAuthenticated ? "/dashboard" : "/signup";
@@ -236,6 +238,37 @@ export function LandingPage({
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const configureSmoothScroll = () => {
+      lenisRef.current?.destroy();
+      lenisRef.current = null;
+
+      if (motionQuery.matches) return;
+
+      const lenis = new Lenis({
+        anchors: { offset: -96 },
+        autoRaf: true,
+        lerp: 0.1,
+        smoothWheel: true,
+        syncTouch: false,
+      });
+
+      if (document.body.classList.contains("menu-open")) lenis.stop();
+      lenisRef.current = lenis;
+    };
+
+    configureSmoothScroll();
+    motionQuery.addEventListener("change", configureSmoothScroll);
+
+    return () => {
+      motionQuery.removeEventListener("change", configureSmoothScroll);
+      lenisRef.current?.destroy();
+      lenisRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -271,6 +304,11 @@ export function LandingPage({
       document.body.classList.remove("menu-open");
       window.removeEventListener("keydown", onKeyDown);
     };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (isMenuOpen) lenisRef.current?.stop();
+    else lenisRef.current?.start();
   }, [isMenuOpen]);
 
   useEffect(() => {

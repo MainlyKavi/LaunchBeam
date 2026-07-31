@@ -63,6 +63,17 @@
 
 html { scroll-padding-top: 0; }
 
+html.lenis,
+html.lenis body { height: auto; }
+
+.lenis:not(.lenis-autoToggle).lenis-stopped { overflow: clip; }
+
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch] { overscroll-behavior: contain; }
+
+.lenis.lenis-smooth iframe { pointer-events: none; }
+
 section[id],
 .section-inner[id],
 #demo { scroll-margin-top: 96px; }
