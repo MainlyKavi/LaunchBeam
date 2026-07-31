@@ -70,40 +70,6 @@
   font-weight: 600;
 }
 
-.lb-auth-brand-mark,
-.db-brand-mark {
-  position: relative;
-  display: inline-block;
-  width: 19px;
-  height: 23px;
-  flex: 0 0 auto;
-}
-
-.lb-auth-brand-mark::before,
-.lb-auth-brand-mark::after,
-.db-brand-mark::before,
-.db-brand-mark::after {
-  position: absolute;
-  left: 7px;
-  width: 5px;
-  height: 15px;
-  border-radius: 5px;
-  background: currentColor;
-  content: "";
-}
-
-.lb-auth-brand-mark::before,
-.db-brand-mark::before {
-  top: 0;
-  transform: rotate(28deg);
-}
-
-.lb-auth-brand-mark::after,
-.db-brand-mark::after {
-  bottom: 0;
-  transform: rotate(-28deg);
-}
-
 .lb-auth-story-copy {
   position: relative;
   z-index: 1;

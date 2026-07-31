@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { LaunchBeamLogo } from "@/components/launchbeam-logo";
 import "../auth.css";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
@@ -8,8 +9,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <div className="lb-auth-frame">
         <aside className="lb-auth-story" aria-label="About LaunchBeam">
           <Link className="lb-auth-brand" href="/" aria-label="LaunchBeam home">
-            <span className="lb-auth-brand-mark" aria-hidden="true" />
-            <span>LaunchBeam</span>
+            <LaunchBeamLogo inverse />
           </Link>
 
           <div className="lb-auth-story-copy">
@@ -49,8 +49,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               href="/"
               aria-label="LaunchBeam home"
             >
-              <span className="lb-auth-brand-mark" aria-hidden="true" />
-              <span>LaunchBeam</span>
+              <LaunchBeamLogo />
             </Link>
             {children}
           </div>

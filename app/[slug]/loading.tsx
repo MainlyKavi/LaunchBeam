@@ -1,8 +1,10 @@
+import { LaunchBeamLogo } from "@/components/launchbeam-logo";
+
 export default function PublicWaitlistLoading() {
   return (
     <main className="public-route-state" aria-busy="true" aria-live="polite">
       <div className="public-route-state-card">
-        <span className="route-state-logo" aria-hidden="true" />
+        <LaunchBeamLogo className="route-state-logo" iconOnly />
         <div className="route-state-line is-short" />
         <div className="route-state-line is-title" />
         <div className="route-state-line" />

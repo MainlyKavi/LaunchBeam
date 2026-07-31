@@ -17,8 +17,9 @@ export async function generateMetadata(): Promise<Metadata> {
     title: TITLE,
     description: DESCRIPTION,
     icons: {
-      icon: "/favicon.svg",
-      shortcut: "/favicon.svg",
+      icon: "/launchbeam-icon.png",
+      shortcut: "/launchbeam-icon.png",
+      apple: "/launchbeam-icon.png",
     },
     openGraph: {
       title: TITLE,
@@ -29,9 +30,9 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [
         {
           url: imageUrl,
-          width: 1731,
-          height: 909,
-          alt: "LaunchBeam waitlist builder and demand score preview",
+          width: 1408,
+          height: 768,
+          alt: "LaunchBeam brand mark and wordmark",
         },
       ],
     },

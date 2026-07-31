@@ -27,11 +27,15 @@
 }
 
 .route-state-logo {
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  background: #d8d6de;
+  width: 42px;
+  height: 42px;
   animation: route-state-pulse 1.5s ease-in-out infinite alternate;
+}
+
+.route-state-logo .launchbeam-logo__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
 }
 
 .route-state-line,

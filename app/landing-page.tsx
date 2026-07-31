@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
+import { LaunchBeamLogo } from "@/components/launchbeam-logo";
 import type { TemplateId } from "@/lib/types";
 
 type StudioTab = "page" | "design" | "analytics";
@@ -382,8 +383,7 @@ function Navigation({
     <header className={`site-header ${isScrolled ? "is-scrolled" : ""}`}>
       <nav className="glass-nav" aria-label="Main navigation">
         <a className="brand" href="#top" aria-label="LaunchBeam home">
-          <span className="brand-mark" aria-hidden="true" />
-          <span className="brand-wordmark">LaunchBeam</span>
+          <LaunchBeamLogo />
         </a>
 
         <div className="nav-links" aria-label="Primary navigation">
@@ -1237,8 +1237,7 @@ function Footer({ isAuthenticated }: { isAuthenticated: boolean }) {
     <footer className="site-footer">
       <div className="section-inner footer-inner">
         <a className="brand" href="#top" aria-label="LaunchBeam home">
-          <span className="brand-mark" aria-hidden="true" />
-          <span className="brand-wordmark">LaunchBeam</span>
+          <LaunchBeamLogo />
         </a>
         <nav className="footer-links" aria-label="Footer navigation">
           {navLinks.map((link) => (

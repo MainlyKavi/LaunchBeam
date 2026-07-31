@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { LaunchBeamLogo } from "@/components/launchbeam-logo";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { LogoutButton } from "./logout-button";
@@ -30,8 +31,7 @@ function DashboardNavigation({ email }: { email: string | null }) {
     <>
       <aside className="db-sidebar">
         <Link className="db-brand" href="/dashboard" aria-label="LaunchBeam dashboard">
-          <span className="db-brand-mark" aria-hidden="true" />
-          <span>LaunchBeam</span>
+          <LaunchBeamLogo inverse />
         </Link>
 
         <p className="db-sidebar-kicker">Workspace</p>
@@ -70,8 +70,7 @@ function DashboardNavigation({ email }: { email: string | null }) {
 
       <header className="db-mobile-header">
         <Link className="db-brand" href="/dashboard" aria-label="LaunchBeam dashboard">
-          <span className="db-brand-mark" aria-hidden="true" />
-          <span>LaunchBeam</span>
+          <LaunchBeamLogo />
         </Link>
         <details className="db-mobile-menu">
           <summary aria-label="Open dashboard navigation">

@@ -3,6 +3,7 @@
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Copy, ExternalLink, MessageCircle, Share2 } from "lucide-react";
+import { LaunchBeamLogo } from "@/components/launchbeam-logo";
 import { readableTextColor } from "@/lib/color-contrast";
 import type {
   ProjectContent,
@@ -484,8 +485,15 @@ function Footer({ project }: { project: WaitlistProject }) {
           </a>
         ))}
       </div>
-      <a href="/" target="_blank" rel="noreferrer">
-        Made with LaunchBeam
+      <a
+        className="waitlist-launchbeam-brand"
+        href="/"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Made with LaunchBeam"
+      >
+        <span>Made with</span>
+        <LaunchBeamLogo compact />
       </a>
     </footer>
   );

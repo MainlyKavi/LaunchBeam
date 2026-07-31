@@ -245,28 +245,54 @@ h1, h2, h3, p { margin: 0; }
   white-space: nowrap;
 }
 
-.brand-mark {
-  position: relative;
+.launchbeam-logo {
+  --launchbeam-logo-ink: #111111;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--launchbeam-logo-ink);
+  line-height: 1;
+}
+
+.launchbeam-logo__icon {
   display: block;
-  width: 19px;
-  height: 22px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
+  border-radius: 10px;
+  object-fit: cover;
 }
 
-.brand-mark::before,
-.brand-mark::after {
-  position: absolute;
-  left: 7px;
-  width: 5px;
-  height: 14px;
-  border-radius: 5px;
-  background: #111111;
-  content: "";
+.launchbeam-logo__wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
 }
 
-.brand-mark::before { top: 0; transform: rotate(28deg); }
-.brand-mark::after { bottom: 0; transform: rotate(-28deg); }
-.brand-wordmark { display: block; }
+.launchbeam-logo__launch { color: var(--launchbeam-logo-ink); }
+.launchbeam-logo__beam { color: #6799bd; }
+.launchbeam-logo--inverse { --launchbeam-logo-ink: #ffffff; }
+
+.launchbeam-logo--compact {
+  gap: 6px;
+}
+
+.launchbeam-logo--compact .launchbeam-logo__icon {
+  width: 25px;
+  height: 25px;
+  border-radius: 8px;
+}
+
+.launchbeam-logo--compact .launchbeam-logo__wordmark {
+  font-size: 13px;
+  letter-spacing: -0.035em;
+}
+
+.launchbeam-logo--icon-only { gap: 0; }
 
 .nav-links {
   display: flex;

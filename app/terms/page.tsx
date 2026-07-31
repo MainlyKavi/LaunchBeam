@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LaunchBeamLogo } from "@/components/launchbeam-logo";
 import "../legal.css";
 
 export const metadata: Metadata = {
@@ -25,8 +26,7 @@ export default function TermsPage() {
     <main className="legal-page">
       <nav className="legal-nav">
         <Link className="brand" href="/" aria-label="LaunchBeam home">
-          <span className="brand-mark" aria-hidden="true" />
-          <span className="brand-wordmark">LaunchBeam</span>
+          <LaunchBeamLogo />
         </Link>
         <div>
           <Link href="/privacy">Privacy</Link>

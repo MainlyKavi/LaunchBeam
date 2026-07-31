@@ -344,6 +344,18 @@
   text-decoration: none;
 }
 
+.waitlist-launchbeam-brand {
+  gap: 8px !important;
+}
+
+.waitlist-launchbeam-brand > span:first-child {
+  white-space: nowrap;
+}
+
+.waitlist-launchbeam-brand .launchbeam-logo {
+  --launchbeam-logo-ink: currentColor;
+}
+
 .waitlist-socials {
   display: flex;
   flex-wrap: wrap;
