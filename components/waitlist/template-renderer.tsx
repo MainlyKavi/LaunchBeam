@@ -395,12 +395,14 @@ type TemplateFrameProps = {
 
 function Brand({ project }: { project: WaitlistProject }) {
   const { content } = project;
+  const logoUrl =
+    content.logoUrl ?? (project.slug === "kimchi" ? "/kimchi-logo.jpg" : null);
   return (
     <div className="waitlist-brand">
-      {content.logoUrl ? (
-        // User-controlled URLs are sanitized before storage.
+      {logoUrl ? (
+        // Stored logo URLs are sanitized; the built-in Kimchi asset is same-origin.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={content.logoUrl} alt="" className="waitlist-logo-image" />
+        <img src={logoUrl} alt="" className="waitlist-logo-image" />
       ) : (
         <span className="waitlist-logo-fallback" aria-hidden="true">
           {project.name.slice(0, 1).toUpperCase()}

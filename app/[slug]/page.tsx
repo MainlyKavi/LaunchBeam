@@ -25,7 +25,10 @@ export async function generateMetadata({
 
   const siteUrl = await getSiteUrl();
   const canonical = `${siteUrl}/${project.slug}`;
-  const image = project.content.heroImageUrl ?? project.content.logoUrl;
+  const image =
+    project.content.heroImageUrl ??
+    project.content.logoUrl ??
+    (project.slug === "kimchi" ? `${siteUrl}/kimchi-logo.jpg` : null);
   const title = `${project.name} | Join the waitlist`;
 
   return {

@@ -70,7 +70,11 @@
 }
 
 .waitlist-logo-image {
-  object-fit: contain;
+  padding: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  object-fit: cover;
 }
 
 .waitlist-copy {

@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { LaunchBeamLogo } from "@/components/launchbeam-logo";
 import type { TemplateId } from "@/lib/types";
@@ -63,7 +64,6 @@ function handleTabKeyDown<Tab extends string>(
 const campaign = {
   startup: "Kimchi",
   slug: "kimchi",
-  logo: "K",
   headline: "Research that finds the signal in customer conversations.",
   description:
     "Kimchi turns interviews and support calls into clear product decisions.",
@@ -75,6 +75,8 @@ const campaign = {
   dailyGrowth: "+8.4%",
   demandScore: 78,
 } as const;
+
+const KIMCHI_LOGO_SRC = "/kimchi-logo.jpg";
 
 const weeklySignups = [64, 68, 72, 76, 80, 86, 96] as const;
 const weeklySignupTotal = weeklySignups.reduce((total, value) => total + value, 0);
@@ -583,11 +585,15 @@ function ProductStudio() {
           </div>
 
           <div className="studio-toolbar-right">
-            <div className="preview-toggle" aria-label="Preview size">
+            <div
+              className={`preview-toggle ${activeTab === "analytics" ? "is-disabled" : ""}`}
+              aria-label="Preview size"
+            >
               <IconToggle
                 label="Desktop preview"
                 icon={Monitor}
                 isActive={previewMode === "desktop"}
+                disabled={activeTab === "analytics"}
                 onClick={() => {
                   setPreviewMode("desktop");
                   markChanged();
@@ -597,6 +603,7 @@ function ProductStudio() {
                 label="Mobile preview"
                 icon={Smartphone}
                 isActive={previewMode === "mobile"}
+                disabled={activeTab === "analytics"}
                 onClick={() => {
                   setPreviewMode("mobile");
                   markChanged();
@@ -609,7 +616,7 @@ function ProductStudio() {
           </div>
         </div>
 
-        <div className="studio-body">
+        <div className={`studio-body is-${activeTab}`}>
           <aside
             className="studio-controls"
             id="studio-panel"
@@ -618,7 +625,7 @@ function ProductStudio() {
             aria-label="Campaign controls"
           >
             {activeTab === "page" ? (
-              <div className="control-group">
+              <div className="control-group studio-panel-content">
                 <div className="control-heading">
                   <span>Campaign copy</span>
                   <small>Live demo</small>
@@ -636,17 +643,20 @@ function ProductStudio() {
                   />
                 </label>
                 <div className="campaign-identity">
-                  <span className="campaign-logo" aria-hidden="true">{campaign.logo}</span>
+                  <KimchiLogo />
                   <div>
                     <strong>{campaign.startup}</strong>
                     <span>launchbeam.vercel.app/{campaign.slug}</span>
                   </div>
                 </div>
+                <p className="control-note">
+                  Edit the headline and watch the public page update instantly.
+                </p>
               </div>
             ) : null}
 
             {activeTab === "design" ? (
-              <div className="control-group">
+              <div className="control-group studio-panel-content">
                 <div className="control-heading">
                   <span>Template</span>
                   <small>Five responsive directions</small>
@@ -695,7 +705,7 @@ function ProductStudio() {
             ) : null}
 
             {activeTab === "analytics" ? (
-              <div className="control-group studio-data-summary">
+              <div className="control-group studio-data-summary studio-panel-content">
                 <div className="control-heading">
                   <span>Campaign signals</span>
                   <small>Example campaign data</small>
@@ -704,6 +714,10 @@ function ProductStudio() {
                   <span>Demand Score</span>
                   <strong>{campaign.demandScore}</strong>
                   <small>Strong early interest</small>
+                </div>
+                <div className="signal-list" aria-label="Key campaign signals">
+                  <div><span>Conversion</span><strong>{campaign.conversion}</strong></div>
+                  <div><span>Referral share</span><strong>{campaign.referralRate}</strong></div>
                 </div>
                 <p>Analytics shown here are simulated and do not represent LaunchBeam customers.</p>
               </div>
@@ -763,11 +777,13 @@ function IconToggle({
   label,
   icon: Icon,
   isActive,
+  disabled = false,
   onClick,
 }: {
   label: string;
   icon: LucideIcon;
   isActive: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -777,10 +793,25 @@ function IconToggle({
       aria-label={label}
       aria-pressed={isActive}
       className={isActive ? "is-active" : ""}
+      disabled={disabled}
       onClick={onClick}
     >
       <Icon size={16} aria-hidden="true" />
     </button>
+  );
+}
+
+function KimchiLogo() {
+  return (
+    <span className="campaign-logo campaign-logo-image" aria-hidden="true">
+      <Image
+        src={KIMCHI_LOGO_SRC}
+        alt=""
+        width={64}
+        height={64}
+        sizes="36px"
+      />
+    </span>
   );
 }
 
@@ -807,7 +838,7 @@ function WaitlistPreview({
         ) : null}
         <div className="waitlist-content">
           <div className="preview-brand-row">
-            <span className="campaign-logo" aria-hidden="true">{campaign.logo}</span>
+            <KimchiLogo />
             <span>{campaign.startup}</span>
           </div>
           <p className="waitlist-kicker">Private beta</p>
@@ -877,11 +908,17 @@ function StudioAnalytics() {
   return (
     <div className="studio-analytics">
       <div className="analytics-preview-header">
-        <div>
-          <span>Example campaign data</span>
-          <p className="analytics-preview-title">{campaign.startup} overview</p>
+        <div className="analytics-preview-brand">
+          <KimchiLogo />
+          <div>
+            <span>Example campaign data</span>
+            <p className="analytics-preview-title">{campaign.startup} overview</p>
+          </div>
         </div>
-        <strong>{campaign.demandScore}<small>/100</small></strong>
+        <div className="analytics-score">
+          <span>Demand Score</span>
+          <strong>{campaign.demandScore}<small>/100</small></strong>
+        </div>
       </div>
       <div className="studio-metrics">
         <CompactMetric label="Visitors" value={campaign.visitors.toLocaleString("en-US")} />
